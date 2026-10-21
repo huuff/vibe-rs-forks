@@ -2,7 +2,8 @@ use expand::{expand_blanket_impl_fn, expand_dyn_struct_fn, expand_fn_sig, Invoke
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use supertraits::{
-    mk_callback_macro, resolve_or_expand, unresolved_bounds, ResolveInput, Supertrait,
+    mk_callback_macro, resolve_or_expand, respan_receivers, unresolved_bounds, ResolveInput,
+    Supertrait,
 };
 use syn::{
     parenthesized,
@@ -352,6 +353,11 @@ pub fn __resolve_supertraits(input: proc_macro::TokenStream) -> proc_macro::Toke
         Ok(attrs) => attrs,
         Err(err) => return err.to_compile_error().into(),
     };
+    let span = item.ident.span();
+    let supertraits = supertraits
+        .into_iter()
+        .map(|def| respan_receivers(def, span))
+        .collect();
     resolve_or_expand(attr, item, supertraits, |item_trait, supertraits| {
         expand(&attrs, item_trait, supertraits)
     })

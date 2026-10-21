@@ -247,6 +247,22 @@ pub(crate) fn unresolved_bounds<'a>(
         })
 }
 
+/// Carried definitions come out of the callback `macro_rules!` with its own
+/// hygiene context, under which a `self` synthesized by an attribute macro
+/// applied to the generated items (`mockall::automock` on the erased trait,
+/// for instance) cannot see their receivers. Move the receivers to the
+/// subtrait's context, which is where such macros are spanned.
+pub(crate) fn respan_receivers(mut item: ItemTrait, span: Span) -> ItemTrait {
+    for trait_item in &mut item.items {
+        if let syn::TraitItem::Fn(f) = trait_item {
+            if let Some(syn::FnArg::Receiver(receiver)) = f.sig.inputs.first_mut() {
+                receiver.self_token.span = span;
+            }
+        }
+    }
+    item
+}
+
 /// A `self` token sharing the receiver's hygiene context. Tokens that pass
 /// through the callback `macro_rules!` get a different syntax context than
 /// `Span::call_site()`, and `self` is hygienic, so a plain `quote!(self)`
