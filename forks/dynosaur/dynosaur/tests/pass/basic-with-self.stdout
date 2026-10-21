@@ -1,0 +1,154 @@
+#![feature(prelude_import)]
+extern crate std;
+#[prelude_import]
+use std::prelude::rust_2021::*;
+use dynosaur::dynosaur;
+
+trait MyTrait {
+    type Item;
+    async fn foo(&self)
+    -> Self::Item;
+}
+mod __dynosaur_macro_dynmytrait {
+    extern crate alloc as __dynosaur_alloc;
+    use __dynosaur_alloc::boxed::Box as _Box;
+    use __dynosaur_alloc::rc::Rc as _Rc;
+    use __dynosaur_alloc::sync::Arc as _Arc;
+    use ::core::pin::Pin as _Pin;
+    use super::*;
+    trait ErasedMyTrait {
+        type Item;
+        fn foo<'life0, 'dynosaur>(&'life0 self)
+        ->
+            _Pin<_Box<dyn ::core::future::Future<Output = Self::Item> +
+            'dynosaur>>
+        where
+        'life0: 'dynosaur,
+        Self: 'dynosaur;
+    }
+    impl<DYNOSAUR: MyTrait> ErasedMyTrait for DYNOSAUR {
+        type Item = <Self as MyTrait>::Item;
+        fn foo<'life0, 'dynosaur>(&'life0 self)
+            ->
+                _Pin<_Box<dyn ::core::future::Future<Output = Self::Item> +
+                'dynosaur>> where 'life0: 'dynosaur, Self: 'dynosaur {
+            _Box::pin(<Self as MyTrait>::foo(self))
+        }
+    }
+    #[doc = "Dyn-compatible wrapper for [`MyTrait`]."]
+    #[repr(transparent)]
+    pub struct DynMyTrait<'dynosaur_struct, Item> {
+        ptr: dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct,
+    }
+    impl<'dynosaur_struct, Item> MyTrait for
+        DynMyTrait<'dynosaur_struct, Item> {
+        type Item = Item;
+        fn foo(&self) -> impl ::core::future::Future<Output = Self::Item> {
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = Self::Item> +
+                    '_>> = self.ptr.foo();
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = Self::Item> +
+                    'static>> = unsafe { ::core::mem::transmute(ret) };
+            ret
+        }
+    }
+    impl<'dynosaur_struct, Item> DynMyTrait<'dynosaur_struct, Item> {
+        #[doc =
+        "Create `Box<DynMyTrait>` from a value implementing [`MyTrait`]."]
+        pub fn new_box(value: impl MyTrait<Item = Item> + 'dynosaur_struct)
+            -> _Box<DynMyTrait<'dynosaur_struct, Item>> {
+            let value = _Box::new(value);
+            let value:
+                    _Box<dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc =
+        "Create `Arc<DynMyTrait>` from a value implementing [`MyTrait`]."]
+        pub fn new_arc(value: impl MyTrait<Item = Item> + 'dynosaur_struct)
+            -> _Arc<DynMyTrait<'dynosaur_struct, Item>> {
+            let value = _Arc::new(value);
+            let value:
+                    _Arc<dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc =
+        "Create `Rc<DynMyTrait>` from a value implementing [`MyTrait`]."]
+        pub fn new_rc(value: impl MyTrait<Item = Item> + 'dynosaur_struct)
+            -> _Rc<DynMyTrait<'dynosaur_struct, Item>> {
+            let value = _Rc::new(value);
+            let value:
+                    _Rc<dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Box<impl MyTrait>` to `Box<DynMyTrait>`."]
+        pub const fn from_box(value:
+                _Box<impl MyTrait<Item = Item> + 'dynosaur_struct>)
+            -> _Box<DynMyTrait<'dynosaur_struct, Item>> {
+            let value:
+                    _Box<dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Arc<impl MyTrait>` to `Arc<DynMyTrait>`."]
+        pub const fn from_arc(value:
+                _Arc<impl MyTrait<Item = Item> + 'dynosaur_struct>)
+            -> _Arc<DynMyTrait<'dynosaur_struct, Item>> {
+            let value:
+                    _Arc<dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Rc<impl MyTrait>` to `Rc<DynMyTrait>`."]
+        pub const fn from_rc(value:
+                _Rc<impl MyTrait<Item = Item> + 'dynosaur_struct>)
+            -> _Rc<DynMyTrait<'dynosaur_struct, Item>> {
+            let value:
+                    _Rc<dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&impl MyTrait` to `&DynMyTrait`."]
+        pub const fn from_ref(value:
+                &(impl MyTrait<Item = Item> + 'dynosaur_struct))
+            -> &DynMyTrait<'dynosaur_struct, Item> {
+            let value: &(dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct) =
+                &*value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&mut impl MyTrait` to `&mut DynMyTrait`."]
+        pub const fn from_mut(value:
+                &mut (impl MyTrait<Item = Item> + 'dynosaur_struct))
+            -> &mut DynMyTrait<'dynosaur_struct, Item> {
+            let value:
+                    &mut (dyn ErasedMyTrait<Item = Item> + 'dynosaur_struct) =
+                &mut *value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+    }
+    impl<DYNOSAUR: MyTrait> MyTrait for &DYNOSAUR where DYNOSAUR: ?Sized {
+        type Item = <DYNOSAUR as MyTrait>::Item;
+        fn foo(&self) -> impl ::core::future::Future<Output = Self::Item> {
+            <DYNOSAUR as MyTrait>::foo(self)
+        }
+    }
+    impl<DYNOSAUR: MyTrait> MyTrait for &mut DYNOSAUR where DYNOSAUR: ?Sized {
+        type Item = <DYNOSAUR as MyTrait>::Item;
+        fn foo(&self) -> impl ::core::future::Future<Output = Self::Item> {
+            <DYNOSAUR as MyTrait>::foo(self)
+        }
+    }
+    impl<DYNOSAUR: MyTrait> MyTrait for _Box<DYNOSAUR> where DYNOSAUR: ?Sized
+        {
+        type Item = <DYNOSAUR as MyTrait>::Item;
+        fn foo(&self) -> impl ::core::future::Future<Output = Self::Item> {
+            <DYNOSAUR as MyTrait>::foo(self)
+        }
+    }
+}
+use __dynosaur_macro_dynmytrait::DynMyTrait;
+
+fn main() {}
