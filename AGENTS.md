@@ -23,9 +23,11 @@ with its own `Cargo.toml`/`Cargo.lock`. There is no root Cargo workspace
 git clone --depth 1 <upstream-url> forks/<name> && rm -rf forks/<name>/.git
 ```
 
-Note the upstream URL and commit in `forks/<name>/FORK.md` so it can be
-re-synced later. Keep patches minimal and in upstream style; don't reformat
-or clippy-clean upstream code. Run clippy by hand:
+Write `forks/<name>/AGENTS.md`: upstream URL and base commit, then one
+section per patch (what, why, where the code and tests are). Read it before
+touching a fork and extend it with every patch; it is the only record of
+how the fork differs from upstream. Keep patches minimal and in upstream
+style; don't reformat or clippy-clean upstream code. Run clippy by hand:
 `cargo clippy --manifest-path forks/<name>/Cargo.toml`.
 
 ## Dev
