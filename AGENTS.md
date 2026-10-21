@@ -5,8 +5,8 @@ as nix packages (`nix build .#<name>`, or `overlays.default`).
 
 ## Layout
 
-- `forks/<name>/` — one self-contained fork per directory, pulled in with
-  `git subtree` so upstream can be merged later. Each keeps its own
+- `forks/<name>/` — one self-contained fork per directory: a plain copy of
+  the upstream source, committed in this repo. Each keeps its own
   `Cargo.toml`/`Cargo.lock`; there is no root Cargo workspace (Cargo cannot
   nest workspaces, and most upstreams are workspaces).
 - `nix/fork.nix` — generic `buildRustPackage` for any fork; `flake.nix`
@@ -17,13 +17,13 @@ as nix packages (`nix build .#<name>`, or `overlays.default`).
 ## Adding a fork
 
 ```sh
-git subtree add --prefix forks/<name> <upstream-url> <branch> --squash
+git clone --depth 1 <upstream-url> forks/<name> && rm -rf forks/<name>/.git
 nix build .#<name>          # fails on git deps: add outputHashes in nix/forks/<name>.nix
-git subtree pull --prefix forks/<name> <upstream-url> <branch> --squash   # later, to update
 ```
 
-Keep patches minimal and on top of upstream style; don't reformat or
-clippy-clean upstream code (merge noise). Run clippy by hand:
+Note the upstream URL and commit in `forks/<name>/FORK.md` so it can be
+re-synced later. Keep patches minimal and in upstream style; don't reformat
+or clippy-clean upstream code. Run clippy by hand:
 `cargo clippy --manifest-path forks/<name>/Cargo.toml`.
 
 ## Dev
