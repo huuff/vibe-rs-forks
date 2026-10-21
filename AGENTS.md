@@ -1,24 +1,26 @@
 # vibe-rs-forks
 
-Forks of upstream Rust projects, each patched with a missing feature, exported
-as nix packages (`nix build .#<name>`, or `overlays.default`).
+Forks of upstream Rust libraries, each patched with a missing feature. Other
+projects consume them as Cargo git dependencies:
+
+```toml
+[dependencies]
+<crate> = { git = "https://github.com/haf/vibe-rs-forks", branch = "main" }
+```
+
+Cargo locates the crate by package name anywhere in the repo, so no workspace
+or registration is needed.
 
 ## Layout
 
-- `forks/<name>/` — one self-contained fork per directory: a plain copy of
-  the upstream source, committed in this repo. Each keeps its own
-  `Cargo.toml`/`Cargo.lock`; there is no root Cargo workspace (Cargo cannot
-  nest workspaces, and most upstreams are workspaces).
-- `nix/fork.nix` — generic `buildRustPackage` for any fork; `flake.nix`
-  discovers `forks/*` automatically, no registration needed.
-- `nix/forks/<name>.nix` — optional per-fork overrides merged into the build
-  (`cargoLock.outputHashes` for git deps, `nativeBuildInputs`, features).
+`forks/<name>/` — one fork per directory: a plain copy of the upstream source
+with its own `Cargo.toml`/`Cargo.lock`. There is no root Cargo workspace
+(Cargo cannot nest workspaces, and most upstreams are workspaces).
 
 ## Adding a fork
 
 ```sh
 git clone --depth 1 <upstream-url> forks/<name> && rm -rf forks/<name>/.git
-nix build .#<name>          # fails on git deps: add outputHashes in nix/forks/<name>.nix
 ```
 
 Note the upstream URL and commit in `forks/<name>/FORK.md` so it can be
@@ -30,7 +32,7 @@ or clippy-clean upstream code. Run clippy by hand:
 
 `devenv shell` (or `direnv allow`) installs the git hooks: secrets scan,
 nix/shell linters, `cargo fmt --check` per touched fork, Conventional Commits.
-`devenv test` evaluates the flake. Never bypass hooks with `--no-verify`.
+Never bypass hooks with `--no-verify`.
 
 devenv `scripts.*` with real logic: use nushell (`package = pkgs.nushell`);
 CLI args need `def --wrapped main [...args]`, interpolation is `$"(...)"`.
