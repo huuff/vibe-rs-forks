@@ -69,6 +69,24 @@ You can find more details in the [API docs][docs.rs].
 
 For more examples, take a look at [`dynosaur/examples`](dynosaur/examples) and [`dynosaur/tests/pass`](dynosaur/tests/pass). In tests you would find `.rs` files with what the user would write and `.stdout` files with what dynosaur generates.
 
+## Supertraits (fork)
+
+This fork supports supertraits with methods, as long as the supertrait is itself a `#[dynosaur]` trait:
+
+```rust,ignore
+#[dynosaur::dynosaur(DynBar = dyn(box) Bar)]
+trait Bar {
+    fn bar(&self) -> i32;
+}
+
+#[dynosaur::dynosaur(DynFoo = dyn(box) Foo)]
+trait Foo: Bar + Send {
+    async fn foo(&self) -> i32;
+}
+```
+
+`DynFoo` implements both `Foo` and `Bar`. See the `dynosaur` macro docs for how it works and its limits (the supertrait's hidden `__dynosaur_Bar` macro must be reachable where `Foo` is defined; no cross-crate or generic supertraits).
+
 ## What will it take to implement this support in Rust?
 
 There are many design questions to be answered before building this support into the language. You can find more background here: <https://smallcultfollowing.com/babysteps/blog/2025/03/25/dyn-you-have-idea-for-dyn/>.

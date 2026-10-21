@@ -7,6 +7,27 @@ trait NextNone {
     async fn next(&mut self)
     -> Option<Self::Item>;
 }
+#[doc =
+"Internal: carries the definition of [`NextNone`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_NextNone {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait NextNone
+                {
+                    type Item; async fn next(& mut self) -> Option < Self ::
+                    Item > ;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_NextNone;
 mod __dynosaur_macro_dynnextnone {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;
@@ -138,6 +159,27 @@ trait NextDefault {
     async fn next(&mut self)
     -> Option<Self::Item>;
 }
+#[doc =
+"Internal: carries the definition of [`NextDefault`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_NextDefault {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait NextDefault
+                {
+                    type Item; async fn next(& mut self) -> Option < Self ::
+                    Item > ;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_NextDefault;
 mod __dynosaur_macro_dynnextdefault {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;
@@ -288,6 +330,27 @@ trait NextDyn {
     async fn next(&mut self)
     -> Option<Self::Item>;
 }
+#[doc =
+"Internal: carries the definition of [`NextDyn`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_NextDyn {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait NextDyn
+                {
+                    type Item; async fn next(& mut self) -> Option < Self ::
+                    Item > ;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_NextDyn;
 mod __dynosaur_macro_dynnextdyn {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

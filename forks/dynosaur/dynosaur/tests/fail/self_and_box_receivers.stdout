@@ -15,6 +15,28 @@ trait All {
     fn self_rc(self: Rc<Self>)
     -> impl Send;
 }
+#[doc =
+"Internal: carries the definition of [`All`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_All {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait All
+                {
+                    fn ref_mut(& mut self); fn ref_(& self) -> impl Send; fn
+                    owned(self) -> impl Send; fn self_box(self : Box < Self >)
+                    -> impl Send; fn self_rc(self : Rc < Self >) -> impl Send;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_All;
 mod __dynosaur_macro_dynall {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

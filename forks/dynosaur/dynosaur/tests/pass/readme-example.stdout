@@ -9,6 +9,27 @@ trait Next {
     async fn next(&mut self)
     -> Option<Self::Item>;
 }
+#[doc =
+"Internal: carries the definition of [`Next`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_Next {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait Next
+                {
+                    type Item; async fn next(& mut self) -> Option < Self ::
+                    Item > ;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_Next;
 mod __dynosaur_macro_dynnext {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

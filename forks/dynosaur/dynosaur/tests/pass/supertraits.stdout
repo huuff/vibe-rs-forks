@@ -1,0 +1,371 @@
+#![feature(prelude_import)]
+extern crate std;
+#[prelude_import]
+use std::prelude::rust_2021::*;
+use dynosaur::dynosaur;
+
+trait Bar {
+    type Out;
+    fn bar(&self)
+    -> i32;
+    async fn baz(&self)
+    -> Self::Out;
+}
+#[doc =
+"Internal: carries the definition of [`Bar`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_Bar {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait Bar
+                {
+                    type Out; fn bar(& self) -> i32; async fn baz(& self) ->
+                    Self :: Out;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_Bar;
+mod __dynosaur_macro_dynbar {
+    extern crate alloc as __dynosaur_alloc;
+    use __dynosaur_alloc::boxed::Box as _Box;
+    use __dynosaur_alloc::rc::Rc as _Rc;
+    use __dynosaur_alloc::sync::Arc as _Arc;
+    use ::core::pin::Pin as _Pin;
+    use super::*;
+    trait ErasedBar {
+        type Out;
+        fn bar(&self)
+        -> i32;
+        fn baz<'life0, 'dynosaur>(&'life0 self)
+        ->
+            _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+            'dynosaur>>
+        where
+        'life0: 'dynosaur,
+        Self: 'dynosaur;
+    }
+    impl<DYNOSAUR: Bar> ErasedBar for DYNOSAUR {
+        type Out = <Self as Bar>::Out;
+        fn bar(&self) -> i32 { <Self as Bar>::bar(self) }
+        fn baz<'life0, 'dynosaur>(&'life0 self)
+            ->
+                _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+                'dynosaur>> where 'life0: 'dynosaur, Self: 'dynosaur {
+            _Box::pin(<Self as Bar>::baz(self))
+        }
+    }
+    #[doc = "Dyn-compatible wrapper for [`Bar`]."]
+    #[repr(transparent)]
+    pub struct DynBar<'dynosaur_struct, Out> {
+        ptr: dyn ErasedBar<Out = Out> + 'dynosaur_struct,
+    }
+    impl<'dynosaur_struct, Out> Bar for DynBar<'dynosaur_struct, Out> {
+        type Out = Out;
+        fn bar(&self) -> i32 { self.ptr.bar() }
+        fn baz(&self) -> impl ::core::future::Future<Output = Self::Out> {
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+                    '_>> = self.ptr.baz();
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+                    'static>> = unsafe { ::core::mem::transmute(ret) };
+            ret
+        }
+    }
+    impl<'dynosaur_struct, Out> DynBar<'dynosaur_struct, Out> {
+        #[doc = "Create `Box<DynBar>` from a value implementing [`Bar`]."]
+        pub fn new_box(value: impl Bar<Out = Out> + 'dynosaur_struct)
+            -> _Box<DynBar<'dynosaur_struct, Out>> {
+            let value = _Box::new(value);
+            let value: _Box<dyn ErasedBar<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Create `Arc<DynBar>` from a value implementing [`Bar`]."]
+        pub fn new_arc(value: impl Bar<Out = Out> + 'dynosaur_struct)
+            -> _Arc<DynBar<'dynosaur_struct, Out>> {
+            let value = _Arc::new(value);
+            let value: _Arc<dyn ErasedBar<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Create `Rc<DynBar>` from a value implementing [`Bar`]."]
+        pub fn new_rc(value: impl Bar<Out = Out> + 'dynosaur_struct)
+            -> _Rc<DynBar<'dynosaur_struct, Out>> {
+            let value = _Rc::new(value);
+            let value: _Rc<dyn ErasedBar<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Box<impl Bar>` to `Box<DynBar>`."]
+        pub const fn from_box(value:
+                _Box<impl Bar<Out = Out> + 'dynosaur_struct>)
+            -> _Box<DynBar<'dynosaur_struct, Out>> {
+            let value: _Box<dyn ErasedBar<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Arc<impl Bar>` to `Arc<DynBar>`."]
+        pub const fn from_arc(value:
+                _Arc<impl Bar<Out = Out> + 'dynosaur_struct>)
+            -> _Arc<DynBar<'dynosaur_struct, Out>> {
+            let value: _Arc<dyn ErasedBar<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Rc<impl Bar>` to `Rc<DynBar>`."]
+        pub const fn from_rc(value:
+                _Rc<impl Bar<Out = Out> + 'dynosaur_struct>)
+            -> _Rc<DynBar<'dynosaur_struct, Out>> {
+            let value: _Rc<dyn ErasedBar<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&impl Bar` to `&DynBar`."]
+        pub const fn from_ref(value:
+                &(impl Bar<Out = Out> + 'dynosaur_struct))
+            -> &DynBar<'dynosaur_struct, Out> {
+            let value: &(dyn ErasedBar<Out = Out> + 'dynosaur_struct) =
+                &*value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&mut impl Bar` to `&mut DynBar`."]
+        pub const fn from_mut(value:
+                &mut (impl Bar<Out = Out> + 'dynosaur_struct))
+            -> &mut DynBar<'dynosaur_struct, Out> {
+            let value: &mut (dyn ErasedBar<Out = Out> + 'dynosaur_struct) =
+                &mut *value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+    }
+    impl<DYNOSAUR: Bar> Bar for &DYNOSAUR where DYNOSAUR: ?Sized {
+        type Out = <DYNOSAUR as Bar>::Out;
+        fn bar(&self) -> i32 { <DYNOSAUR as Bar>::bar(self) }
+        fn baz(&self) -> impl ::core::future::Future<Output = Self::Out> {
+            <DYNOSAUR as Bar>::baz(self)
+        }
+    }
+    impl<DYNOSAUR: Bar> Bar for &mut DYNOSAUR where DYNOSAUR: ?Sized {
+        type Out = <DYNOSAUR as Bar>::Out;
+        fn bar(&self) -> i32 { <DYNOSAUR as Bar>::bar(self) }
+        fn baz(&self) -> impl ::core::future::Future<Output = Self::Out> {
+            <DYNOSAUR as Bar>::baz(self)
+        }
+    }
+    impl<DYNOSAUR: Bar> Bar for _Box<DYNOSAUR> where DYNOSAUR: ?Sized {
+        type Out = <DYNOSAUR as Bar>::Out;
+        fn bar(&self) -> i32 { <DYNOSAUR as Bar>::bar(self) }
+        fn baz(&self) -> impl ::core::future::Future<Output = Self::Out> {
+            <DYNOSAUR as Bar>::baz(self)
+        }
+    }
+}
+use __dynosaur_macro_dynbar::DynBar;
+
+trait Foo: Bar + Send {
+    async fn foo(&self)
+    -> i32;
+}
+#[doc =
+"Internal: carries the definition of [`Foo`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_Foo {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            { trait Foo : Bar + Send { async fn foo(& self) -> i32; } }
+            supertrait
+            {
+                trait Bar
+                {
+                    type Out; fn bar(& self) -> i32; async fn baz(& self) ->
+                    Self :: Out;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_Foo;
+mod __dynosaur_macro_dynfoo {
+    extern crate alloc as __dynosaur_alloc;
+    use __dynosaur_alloc::boxed::Box as _Box;
+    use __dynosaur_alloc::rc::Rc as _Rc;
+    use __dynosaur_alloc::sync::Arc as _Arc;
+    use ::core::pin::Pin as _Pin;
+    use super::*;
+    trait ErasedFoo: Send {
+        fn foo<'life0, 'dynosaur>(&'life0 self)
+        -> _Pin<_Box<dyn ::core::future::Future<Output = i32> + 'dynosaur>>
+        where
+        'life0: 'dynosaur,
+        Self: 'dynosaur;
+        type Out;
+        fn bar(&self)
+        -> i32;
+        fn baz<'life0, 'dynosaur>(&'life0 self)
+        ->
+            _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+            'dynosaur>>
+        where
+        'life0: 'dynosaur,
+        Self: 'dynosaur;
+    }
+    impl<DYNOSAUR: Foo> ErasedFoo for DYNOSAUR {
+        fn foo<'life0, 'dynosaur>(&'life0 self)
+            ->
+                _Pin<_Box<dyn ::core::future::Future<Output = i32> +
+                'dynosaur>> where 'life0: 'dynosaur, Self: 'dynosaur {
+            _Box::pin(<Self as Foo>::foo(self))
+        }
+        type Out = <Self as Bar>::Out;
+        fn bar(&self) -> i32 { <Self as Bar>::bar(self) }
+        fn baz<'life0, 'dynosaur>(&'life0 self)
+            ->
+                _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+                'dynosaur>> where 'life0: 'dynosaur, Self: 'dynosaur {
+            _Box::pin(<Self as Bar>::baz(self))
+        }
+    }
+    #[doc = "Dyn-compatible wrapper for [`Foo`]."]
+    #[repr(transparent)]
+    pub struct DynFoo<'dynosaur_struct, Out> {
+        ptr: dyn ErasedFoo<Out = Out> + 'dynosaur_struct,
+    }
+    impl<'dynosaur_struct, Out> Foo for DynFoo<'dynosaur_struct, Out> {
+        fn foo(&self) -> impl ::core::future::Future<Output = i32> {
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = i32> + '_>> =
+                self.ptr.foo();
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = i32> +
+                    'static>> = unsafe { ::core::mem::transmute(ret) };
+            ret
+        }
+    }
+    impl<'dynosaur_struct, Out> Bar for DynFoo<'dynosaur_struct, Out> {
+        type Out = Out;
+        fn bar(&self) -> i32 { self.ptr.bar() }
+        fn baz(&self) -> impl ::core::future::Future<Output = Self::Out> {
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+                    '_>> = self.ptr.baz();
+            let ret:
+                    _Pin<_Box<dyn ::core::future::Future<Output = Self::Out> +
+                    'static>> = unsafe { ::core::mem::transmute(ret) };
+            ret
+        }
+    }
+    impl<'dynosaur_struct, Out> DynFoo<'dynosaur_struct, Out> {
+        #[doc = "Create `Box<DynFoo>` from a value implementing [`Foo`]."]
+        pub fn new_box(value: impl Foo<Out = Out> + 'dynosaur_struct)
+            -> _Box<DynFoo<'dynosaur_struct, Out>> {
+            let value = _Box::new(value);
+            let value: _Box<dyn ErasedFoo<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Create `Arc<DynFoo>` from a value implementing [`Foo`]."]
+        pub fn new_arc(value: impl Foo<Out = Out> + 'dynosaur_struct)
+            -> _Arc<DynFoo<'dynosaur_struct, Out>> {
+            let value = _Arc::new(value);
+            let value: _Arc<dyn ErasedFoo<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Create `Rc<DynFoo>` from a value implementing [`Foo`]."]
+        pub fn new_rc(value: impl Foo<Out = Out> + 'dynosaur_struct)
+            -> _Rc<DynFoo<'dynosaur_struct, Out>> {
+            let value = _Rc::new(value);
+            let value: _Rc<dyn ErasedFoo<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Box<impl Foo>` to `Box<DynFoo>`."]
+        pub const fn from_box(value:
+                _Box<impl Foo<Out = Out> + 'dynosaur_struct>)
+            -> _Box<DynFoo<'dynosaur_struct, Out>> {
+            let value: _Box<dyn ErasedFoo<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Arc<impl Foo>` to `Arc<DynFoo>`."]
+        pub const fn from_arc(value:
+                _Arc<impl Foo<Out = Out> + 'dynosaur_struct>)
+            -> _Arc<DynFoo<'dynosaur_struct, Out>> {
+            let value: _Arc<dyn ErasedFoo<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Rc<impl Foo>` to `Rc<DynFoo>`."]
+        pub const fn from_rc(value:
+                _Rc<impl Foo<Out = Out> + 'dynosaur_struct>)
+            -> _Rc<DynFoo<'dynosaur_struct, Out>> {
+            let value: _Rc<dyn ErasedFoo<Out = Out> + 'dynosaur_struct> =
+                value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&impl Foo` to `&DynFoo`."]
+        pub const fn from_ref(value:
+                &(impl Foo<Out = Out> + 'dynosaur_struct))
+            -> &DynFoo<'dynosaur_struct, Out> {
+            let value: &(dyn ErasedFoo<Out = Out> + 'dynosaur_struct) =
+                &*value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&mut impl Foo` to `&mut DynFoo`."]
+        pub const fn from_mut(value:
+                &mut (impl Foo<Out = Out> + 'dynosaur_struct))
+            -> &mut DynFoo<'dynosaur_struct, Out> {
+            let value: &mut (dyn ErasedFoo<Out = Out> + 'dynosaur_struct) =
+                &mut *value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+    }
+    impl<DYNOSAUR: Foo> Foo for &DYNOSAUR where DYNOSAUR: ?Sized, Self: Bar,
+        Self: Send {
+        fn foo(&self) -> impl ::core::future::Future<Output = i32> {
+            <DYNOSAUR as Foo>::foo(self)
+        }
+    }
+    impl<DYNOSAUR: Foo> Foo for &mut DYNOSAUR where DYNOSAUR: ?Sized,
+        Self: Bar, Self: Send {
+        fn foo(&self) -> impl ::core::future::Future<Output = i32> {
+            <DYNOSAUR as Foo>::foo(self)
+        }
+    }
+    impl<DYNOSAUR: Foo> Foo for _Box<DYNOSAUR> where DYNOSAUR: ?Sized,
+        Self: Bar, Self: Send {
+        fn foo(&self) -> impl ::core::future::Future<Output = i32> {
+            <DYNOSAUR as Foo>::foo(self)
+        }
+    }
+}
+use __dynosaur_macro_dynfoo::DynFoo;
+
+struct S;
+
+impl Bar for S {
+    type Out = u8;
+    fn bar(&self) -> i32 { 1 }
+    async fn baz(&self) -> u8 { 2 }
+}
+
+impl Foo for S {
+    async fn foo(&self) -> i32 { self.bar() + 1 }
+}
+
+async fn use_dyn(f: &DynFoo<'_, u8>) -> (i32, u8, i32) {
+    (f.bar(), f.baz().await, f.foo().await)
+}
+
+fn main() { let s = S; let _ = use_dyn(DynFoo::from_ref(&s)); }

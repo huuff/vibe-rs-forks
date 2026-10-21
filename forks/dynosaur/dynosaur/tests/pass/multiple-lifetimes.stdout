@@ -12,6 +12,34 @@ trait SomeTrait {
     async fn multiple_static_and_anonymous(&self, a: &'static u8, b: &'_ u8,
     c: &'_ u8);
 }
+#[doc =
+"Internal: carries the definition of [`SomeTrait`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_SomeTrait {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait SomeTrait
+                {
+                    async fn
+                    multiple_elided_lifetimes(& self, a : & u8, b : & u8); async
+                    fn multiple_named_lifetimes < 'a, 'b : 'a >
+                    (& self, a : & 'a u8, b : & 'b u8, c : & u8); async fn
+                    same_lifetimes_multiple_params < 'a >
+                    (& self, a1 : & 'a u8, a2 : & 'a u8, c : & u8) -> & 'a u8;
+                    async fn
+                    multiple_static_and_anonymous(& self, a : & 'static u8, b :
+                    & '_ u8, c : & '_ u8);
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_SomeTrait;
 mod __dynosaur_macro_dynsometrait {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

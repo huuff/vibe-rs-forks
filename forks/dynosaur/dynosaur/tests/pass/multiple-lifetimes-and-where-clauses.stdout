@@ -9,6 +9,28 @@ trait SomeTrait<'a, 'b> {
     where
     'b: 'a;
 }
+#[doc =
+"Internal: carries the definition of [`SomeTrait`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_SomeTrait {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait SomeTrait < 'a, 'b >
+                {
+                    async fn lotsa_lifetimes < 'd, 'e, 'f >
+                    (& self, a : & 'd u32, b : & 'e u32, c : & 'f u32) -> & 'a
+                    u32 where 'b : 'a;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_SomeTrait;
 mod __dynosaur_macro_dynsometrait {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

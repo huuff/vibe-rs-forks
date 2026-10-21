@@ -8,6 +8,24 @@ trait Foo: Send {
     fn foo(&self)
     -> impl Future<Output = i32> + Send;
 }
+#[doc =
+"Internal: carries the definition of [`Foo`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_Foo {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait Foo : Send
+                { fn foo(& self) -> impl Future < Output = i32 > + Send; }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_Foo;
 mod __dynosaur_macro_dynfoo {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

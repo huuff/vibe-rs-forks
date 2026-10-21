@@ -11,6 +11,28 @@ pub trait Service<Request> {
     fn call(&self, req: Request)
     -> impl Future<Output = Result<Self::Response, Self::Error>>;
 }
+#[doc =
+"Internal: carries the definition of [`Service`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_Service {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                pub trait Service < Request >
+                {
+                    type Response; type Error; fn call(& self, req : Request) ->
+                    impl Future < Output = Result < Self :: Response, Self ::
+                    Error > > ;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+pub(crate) use __dynosaur_Service;
 mod __dynosaur_macro_dynservice {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

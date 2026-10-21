@@ -1,0 +1,117 @@
+#![feature(prelude_import)]
+extern crate std;
+#[prelude_import]
+use std::prelude::rust_2021::*;
+use dynosaur::dynosaur;
+
+trait Bar<T> {
+    fn bar(&self)
+    -> T;
+}
+#[doc =
+"Internal: carries the definition of [`Bar`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_Bar {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            { trait Bar < T > { fn bar(& self) -> T; } }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_Bar;
+mod __dynosaur_macro_dynbar {
+    extern crate alloc as __dynosaur_alloc;
+    use __dynosaur_alloc::boxed::Box as _Box;
+    use __dynosaur_alloc::rc::Rc as _Rc;
+    use __dynosaur_alloc::sync::Arc as _Arc;
+    use ::core::pin::Pin as _Pin;
+    use super::*;
+    trait ErasedBar<T> {
+        fn bar(&self)
+        -> T;
+    }
+    impl<T, DYNOSAUR: Bar<T>> ErasedBar<T> for DYNOSAUR {
+        fn bar(&self) -> T { <Self as Bar<T>>::bar(self) }
+    }
+    #[doc = "Dyn-compatible wrapper for [`Bar`]."]
+    #[repr(transparent)]
+    pub struct DynBar<'dynosaur_struct, T> {
+        ptr: dyn ErasedBar<T> + 'dynosaur_struct,
+    }
+    impl<'dynosaur_struct, T> Bar<T> for DynBar<'dynosaur_struct, T> {
+        fn bar(&self) -> T { self.ptr.bar() }
+    }
+    impl<'dynosaur_struct, T> DynBar<'dynosaur_struct, T> {
+        #[doc = "Create `Box<DynBar>` from a value implementing [`Bar`]."]
+        pub fn new_box(value: impl Bar<T> + 'dynosaur_struct)
+            -> _Box<DynBar<'dynosaur_struct, T>> {
+            let value = _Box::new(value);
+            let value: _Box<dyn ErasedBar<T> + 'dynosaur_struct> = value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Create `Arc<DynBar>` from a value implementing [`Bar`]."]
+        pub fn new_arc(value: impl Bar<T> + 'dynosaur_struct)
+            -> _Arc<DynBar<'dynosaur_struct, T>> {
+            let value = _Arc::new(value);
+            let value: _Arc<dyn ErasedBar<T> + 'dynosaur_struct> = value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Create `Rc<DynBar>` from a value implementing [`Bar`]."]
+        pub fn new_rc(value: impl Bar<T> + 'dynosaur_struct)
+            -> _Rc<DynBar<'dynosaur_struct, T>> {
+            let value = _Rc::new(value);
+            let value: _Rc<dyn ErasedBar<T> + 'dynosaur_struct> = value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Box<impl Bar>` to `Box<DynBar>`."]
+        pub const fn from_box(value: _Box<impl Bar<T> + 'dynosaur_struct>)
+            -> _Box<DynBar<'dynosaur_struct, T>> {
+            let value: _Box<dyn ErasedBar<T> + 'dynosaur_struct> = value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Arc<impl Bar>` to `Arc<DynBar>`."]
+        pub const fn from_arc(value: _Arc<impl Bar<T> + 'dynosaur_struct>)
+            -> _Arc<DynBar<'dynosaur_struct, T>> {
+            let value: _Arc<dyn ErasedBar<T> + 'dynosaur_struct> = value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `Rc<impl Bar>` to `Rc<DynBar>`."]
+        pub const fn from_rc(value: _Rc<impl Bar<T> + 'dynosaur_struct>)
+            -> _Rc<DynBar<'dynosaur_struct, T>> {
+            let value: _Rc<dyn ErasedBar<T> + 'dynosaur_struct> = value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&impl Bar` to `&DynBar`."]
+        pub const fn from_ref(value: &(impl Bar<T> + 'dynosaur_struct))
+            -> &DynBar<'dynosaur_struct, T> {
+            let value: &(dyn ErasedBar<T> + 'dynosaur_struct) = &*value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+        #[doc = "Convert `&mut impl Bar` to `&mut DynBar`."]
+        pub const fn from_mut(value: &mut (impl Bar<T> + 'dynosaur_struct))
+            -> &mut DynBar<'dynosaur_struct, T> {
+            let value: &mut (dyn ErasedBar<T> + 'dynosaur_struct) =
+                &mut *value;
+            unsafe { ::core::mem::transmute(value) }
+        }
+    }
+    impl<T, DYNOSAUR: Bar<T>> Bar<T> for &DYNOSAUR where DYNOSAUR: ?Sized {
+        fn bar(&self) -> T { <DYNOSAUR as Bar<T>>::bar(self) }
+    }
+    impl<T, DYNOSAUR: Bar<T>> Bar<T> for &mut DYNOSAUR where DYNOSAUR: ?Sized
+        {
+        fn bar(&self) -> T { <DYNOSAUR as Bar<T>>::bar(self) }
+    }
+    impl<T, DYNOSAUR: Bar<T>> Bar<T> for _Box<DYNOSAUR> where DYNOSAUR: ?Sized
+        {
+        fn bar(&self) -> T { <DYNOSAUR as Bar<T>>::bar(self) }
+    }
+}
+use __dynosaur_macro_dynbar::DynBar;
+
+
+fn main() {}

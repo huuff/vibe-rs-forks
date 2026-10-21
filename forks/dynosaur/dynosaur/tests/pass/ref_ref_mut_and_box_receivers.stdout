@@ -5,6 +5,18 @@ use std::prelude::rust_2021::*;
 trait RefOnly {
     fn ref_(&self);
 }
+#[doc =
+"Internal: carries the definition of [`RefOnly`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_RefOnly {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        { $ ($rest) * supertrait { trait RefOnly { fn ref_(& self); } } }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_RefOnly;
 mod __dynosaur_macro_dynrefonly {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;
@@ -101,6 +113,24 @@ trait MutAndRef {
     fn ref_(&self)
     -> impl Send;
 }
+#[doc =
+"Internal: carries the definition of [`MutAndRef`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_MutAndRef {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait MutAndRef
+                { fn ref_mut(& mut self); fn ref_(& self) -> impl Send; }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_MutAndRef;
 mod __dynosaur_macro_dynmutandref {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;
@@ -214,6 +244,24 @@ trait All {
     //fn owned(self) -> impl Send;
     //fn self_box(self: Box<Self>) -> impl Send;
 }
+#[doc =
+"Internal: carries the definition of [`All`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_All {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait All
+                { fn ref_mut(& mut self); fn ref_(& self) -> impl Send; }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_All;
 mod __dynosaur_macro_dynall {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

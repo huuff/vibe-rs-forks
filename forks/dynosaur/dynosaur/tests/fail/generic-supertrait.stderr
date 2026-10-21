@@ -1,0 +1,8 @@
+error: generic supertraits are not supported by dynosaur
+ --> fail/generic-supertrait.rs:9:12
+  |
+9 | trait Foo: Bar<i32> {
+  |            ^^^^^^^^
+
+error: aborting due to 1 previous error
+

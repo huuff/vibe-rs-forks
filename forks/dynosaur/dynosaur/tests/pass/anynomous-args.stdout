@@ -5,6 +5,27 @@ use std::prelude::rust_2021::*;
 trait SomeTrait {
     async fn multiple_elided_lifetimes(&self, _: &u8, _: &u8);
 }
+#[doc =
+"Internal: carries the definition of [`SomeTrait`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_SomeTrait {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait SomeTrait
+                {
+                    async fn
+                    multiple_elided_lifetimes(& self, _ : & u8, _ : & u8);
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_SomeTrait;
 mod __dynosaur_macro_dynsometrait {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

@@ -9,6 +9,24 @@ pub trait JobQueue {
     -> usize;
     async fn dispatch(&self);
 }
+#[doc =
+"Internal: carries the definition of [`JobQueue`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_JobQueue {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                pub trait JobQueue
+                { fn len(& self) -> usize; async fn dispatch(& self); }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+pub(crate) use __dynosaur_JobQueue;
 mod __dynosaur_macro_dynjobqueue {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

@@ -1,6 +1,7 @@
 use crate::lifetime::{AddLifetimeToImplTrait, CollectLifetimes};
 use crate::receiver::has_self_in_sig;
 use crate::sig::{is_async, is_future, is_rpit};
+use crate::supertraits::self_token;
 use crate::where_clauses::{has_where_self_sized, where_clause_or_default};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
@@ -8,7 +9,8 @@ use syn::punctuated::Punctuated;
 use syn::visit_mut::VisitMut;
 use syn::{
     parse_quote, parse_quote_spanned, Error, FnArg, GenericParam, Generics, Ident, ItemTrait,
-    Lifetime, Pat, PatIdent, ReturnType, Signature, Token, Type, TypeImplTrait, TypeParamBound,
+    Lifetime, Pat, PatIdent, Path, ReturnType, Signature, Token, Type, TypeImplTrait,
+    TypeParamBound,
 };
 
 /// Expands the signature of each function on the trait, converting async fn into fn with return
@@ -278,13 +280,13 @@ fn expand_invoke_args(sig: &Signature, mode: &InvokeArgsMode) -> Vec<TokenStream
 
     for arg in &sig.inputs {
         match arg {
-            FnArg::Receiver(_) => {
+            FnArg::Receiver(receiver) => {
                 if matches!(
                     mode,
                     InvokeArgsMode::DirectUfcs(_) | InvokeArgsMode::MaybeBoxedUfcs
                 ) {
                     // Do not need & or &mut as this is at calling site
-                    args.push(quote! { self });
+                    args.push(self_token(receiver));
                 }
             }
             FnArg::Typed(pat_type) => match &*pat_type.pat {
@@ -319,17 +321,20 @@ fn expand_invoke_args(sig: &Signature, mode: &InvokeArgsMode) -> Vec<TokenStream
     args
 }
 
-pub(crate) fn expand_blanket_impl_fn(item_trait: &ItemTrait, sig: &mut Signature) -> TokenStream {
+pub(crate) fn expand_blanket_impl_fn(
+    trait_path: &Path,
+    item_trait: &ItemTrait,
+    sig: &mut Signature,
+) -> TokenStream {
     let is_async = is_async(sig);
     let is_rpit = is_rpit(sig);
 
     expand_fn_sig(&item_trait.generics, sig);
 
-    let trait_ident = &item_trait.ident;
     let (_, trait_generics, _) = &item_trait.generics.split_for_impl();
     let ident = &sig.ident;
     let args = expand_invoke_args(sig, &InvokeArgsMode::MaybeBoxedUfcs);
-    let value = quote! { <Self as #trait_ident #trait_generics>::#ident(#(#args),*) };
+    let value = quote! { <Self as #trait_path #trait_generics>::#ident(#(#args),*) };
 
     let value = if is_async {
         quote! {
@@ -375,6 +380,7 @@ pub(crate) fn expand_dyn_struct_fn(sig: &Signature, mode: &InvokeArgsMode) -> To
         let mut sig = sig.clone();
         expand_arg_names(&mut sig);
         let args = expand_invoke_args(&sig, mode);
+        let self_ = sig.receiver().map(self_token);
 
         if let InvokeArgsMode::DirectUfcs(self_) = mode {
             if is_async {
@@ -397,7 +403,7 @@ pub(crate) fn expand_dyn_struct_fn(sig: &Signature, mode: &InvokeArgsMode) -> To
             if !is_async && !is_rpit {
                 quote! {
                     #sig {
-                        self.ptr.#ident(#(#args),*)
+                        #self_.ptr.#ident(#(#args),*)
                     }
                 }
             } else {
@@ -419,7 +425,7 @@ pub(crate) fn expand_dyn_struct_fn(sig: &Signature, mode: &InvokeArgsMode) -> To
 
                 quote! {
                     #sig {
-                        let ret: #ty1 = self.ptr.#ident(#(#args),*);
+                        let ret: #ty1 = #self_.ptr.#ident(#(#args),*);
                         let ret: #ty2 = unsafe { ::core::mem::transmute(ret) };
                         ret
                     }

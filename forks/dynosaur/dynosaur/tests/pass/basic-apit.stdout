@@ -17,6 +17,28 @@ trait MyTrait {
     fn baz(&self, _: impl Future<Output = i32>)
     -> i32;
 }
+#[doc =
+"Internal: carries the definition of [`MyTrait`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_MyTrait {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait MyTrait
+                {
+                    fn foo(& self, _ : impl Foo) -> i32; async fn
+                    bar(& self, _ : impl Foo) -> i32; fn
+                    baz(& self, _ : impl Future < Output = i32 >) -> i32;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_MyTrait;
 mod __dynosaur_macro_dynmytrait {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;

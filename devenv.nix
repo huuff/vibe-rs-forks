@@ -36,8 +36,15 @@ in
     # --- hygiene ---
     check-added-large-files.enable = true;
     check-merge-conflicts.enable = true;
-    end-of-file-fixer.enable = true;
-    trim-trailing-whitespace.enable = true;
+    # Golden files under forks/*/tests are compared byte-for-byte; leave them alone.
+    end-of-file-fixer = {
+      enable = true;
+      excludes = [ "\\.(stdout|stderr)$" ];
+    };
+    trim-trailing-whitespace = {
+      enable = true;
+      excludes = [ "\\.(stdout|stderr)$" ];
+    };
 
     # --- static analysis: nix ---
     nixfmt.enable = true; # RFC 166 style; nixfmt >= 1.0 (nixfmt-rfc-style is the deprecated alias)

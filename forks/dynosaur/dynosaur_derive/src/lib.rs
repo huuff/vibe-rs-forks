@@ -1,13 +1,16 @@
 use expand::{expand_blanket_impl_fn, expand_dyn_struct_fn, expand_fn_sig, InvokeArgsMode};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
+use supertraits::{
+    mk_callback_macro, resolve_or_expand, unresolved_bounds, ResolveInput, Supertrait,
+};
 use syn::{
     parenthesized,
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
-    Error, GenericParam, Ident, ItemTrait, Result, Token, TraitItem, TraitItemFn, TraitItemType,
-    TypeParam, Visibility,
+    Error, GenericParam, Ident, ItemTrait, Path, Result, Token, TraitItem, TraitItemFn,
+    TraitItemType, TypeParam, Visibility,
 };
 use traits::{
     dyn_compatible_items, self_receiver, struct_trait_params, trait_item_erased_name,
@@ -19,6 +22,7 @@ mod expand;
 mod lifetime;
 mod receiver;
 mod sig;
+mod supertraits;
 mod traits;
 mod where_clauses;
 
@@ -236,6 +240,47 @@ impl Parse for Bridge {
 ///
 /// [trait_variant]: https://docs.rs/trait-variant/latest/trait_variant/
 ///
+/// ## Supertraits
+///
+/// A supertrait with methods works when it is itself a `#[dynosaur]` trait;
+/// nothing else needs to be written. Auto traits (`Send`, `Sync`, ...) work
+/// regardless.
+///
+/// ```rust,ignore
+/// // (ignored here: the mechanism needs the real `dynosaur` crate, which
+/// // this crate's doctests don't have; see tests/pass/supertraits.rs)
+/// use dynosaur::dynosaur;
+///
+/// #[dynosaur(DynBar = dyn(box) Bar)]
+/// trait Bar {
+///     fn bar(&self) -> i32;
+/// }
+///
+/// #[dynosaur(DynFoo = dyn(box) Foo)]
+/// trait Foo: Bar + Send {
+///     async fn foo(&self) -> i32;
+/// }
+/// ```
+///
+/// `DynFoo` then implements both `Foo` and `Bar`, and a supertrait's
+/// associated types become type parameters of `DynFoo` like the trait's own.
+///
+/// How it works: `#[dynosaur]` on `Bar` also emits a hidden
+/// `macro_rules! __dynosaur_Bar` carrying `Bar`'s definition, and `Foo`'s
+/// expansion calls it to obtain `Bar`'s items. Consequences:
+///
+/// * `Bar` must be a `#[dynosaur]` trait; otherwise the error is
+///   ``cannot find macro `__dynosaur_Bar` ``.
+/// * `__dynosaur_Bar` must be reachable where `Foo` is defined: same module
+///   (defined before `Foo`), by path (`trait Foo: path::to::Bar`), or by glob
+///   import. With a named import, import the macro too:
+///   `use path::to::{Bar, __dynosaur_Bar};`.
+/// * Transitive supertraits (`Bar: Qux`) are referred to by the path written
+///   in `Bar`, so `Qux` must also be in scope where `Foo` is defined; rustc
+///   suggests the `use` if it is not.
+/// * Supertraits from other crates and generic supertraits (`Foo: Bar<T>`)
+///   are not supported.
+///
 /// ## Argument-position `impl Trait` support
 ///
 /// Dynosaur has basic support for dyn-compatible `impl Trait` in argument
@@ -275,7 +320,11 @@ pub fn dynosaur(
     attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let attrs = parse_macro_input!(attr as Attrs);
+    let attr: TokenStream = attr.into();
+    let attrs = match syn::parse2::<Attrs>(attr.clone()) {
+        Ok(attrs) => attrs,
+        Err(err) => return err.to_compile_error().into(),
+    };
     let item_trait = parse_macro_input!(item as ItemTrait);
     if attrs.target.trait_name != item_trait.ident {
         // This attribute is being applied to a different trait than the one
@@ -284,21 +333,56 @@ pub fn dynosaur(
         return quote! { #item_trait }.into();
     }
 
+    resolve_or_expand(attr, item_trait, Vec::new(), |item_trait, supertraits| {
+        expand(&attrs, item_trait, supertraits)
+    })
+    .into()
+}
+
+/// Internal callback target used to resolve supertraits; see `supertraits.rs`.
+#[doc(hidden)]
+#[proc_macro]
+pub fn __resolve_supertraits(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ResolveInput {
+        attr,
+        item,
+        supertraits,
+    } = parse_macro_input!(input as ResolveInput);
+    let attrs = match syn::parse2::<Attrs>(attr.clone()) {
+        Ok(attrs) => attrs,
+        Err(err) => return err.to_compile_error().into(),
+    };
+    resolve_or_expand(attr, item, supertraits, |item_trait, supertraits| {
+        expand(&attrs, item_trait, supertraits)
+    })
+    .into()
+}
+
+fn expand(attrs: &Attrs, item_trait: &ItemTrait, supertraits: &[Supertrait]) -> TokenStream {
     let vis = &attrs.vis;
     let struct_ident = &attrs.ident;
 
-    let erased_trait = mk_erased_trait(&item_trait);
-    let erased_trait_blanket_impl = mk_erased_trait_blanket_impl(&item_trait);
-    let dyn_struct = mk_dyn_struct(&struct_ident, &item_trait);
-    let dyn_struct_impl_item = mk_dyn_struct_impl_item(struct_ident, &item_trait);
-    let struct_inherent_impl = mk_struct_inherent_impl(struct_ident, &item_trait);
+    let erased_trait = mk_erased_trait(item_trait, supertraits);
+    let erased_trait_blanket_impl = mk_erased_trait_blanket_impl(item_trait, supertraits);
+    let dyn_struct = mk_dyn_struct(struct_ident, item_trait, &erased_trait);
+    let item_trait_ident = &item_trait.ident;
+    let item_trait_path: Path = parse_quote!(#item_trait_ident);
+    let dyn_struct_impl_item = std::iter::once((&item_trait_path, item_trait))
+        .chain(supertraits.iter().map(|s| (&s.path, &s.item)))
+        .map(|(path, trait_item)| {
+            mk_dyn_struct_impl_item(struct_ident, path, trait_item, &erased_trait)
+        });
+    let struct_inherent_impl = mk_struct_inherent_impl(struct_ident, item_trait, &erased_trait);
     let box_blanket_impl = match attrs.bridge {
         Some(Bridge::None) => quote!(),
         Some(Bridge::Blanket) | None => {
-            mk_box_blanket_impl(&struct_ident, &item_trait, Bridge::Blanket)
+            mk_box_blanket_impl(struct_ident, item_trait, &erased_trait, Bridge::Blanket)
         }
-        Some(Bridge::Dyn) => mk_box_blanket_impl(&struct_ident, &item_trait, Bridge::Dyn),
+        Some(Bridge::Dyn) => {
+            mk_box_blanket_impl(struct_ident, item_trait, &erased_trait, Bridge::Dyn)
+        }
     };
+    let callback_macro = mk_callback_macro(item_trait, supertraits);
 
     let dynosaur_mod = Ident::new(
         &format!(
@@ -311,6 +395,8 @@ pub fn dynosaur(
     quote! {
         #item_trait
 
+        #callback_macro
+
         mod #dynosaur_mod {
             extern crate alloc as __dynosaur_alloc;
             use __dynosaur_alloc::boxed::Box as _Box;
@@ -321,39 +407,59 @@ pub fn dynosaur(
             #erased_trait
             #erased_trait_blanket_impl
             #dyn_struct
-            #dyn_struct_impl_item
+            #(#dyn_struct_impl_item)*
             #struct_inherent_impl
             #box_blanket_impl
         }
 
         #vis use #dynosaur_mod::#struct_ident;
     }
-    .into()
 }
 
-fn mk_erased_trait(item_trait: &ItemTrait) -> ItemTrait {
-    let items: Vec<_> = dyn_compatible_items(&item_trait.items)
+/// The erased trait: the trait's own dyn-compatible items plus those of every
+/// resolved supertrait, all with erased signatures. Resolved supertraits are
+/// dropped from the bounds (their items live here now); the rest (auto
+/// traits, lifetimes) are kept, including those of the resolved supertraits.
+fn mk_erased_trait(item_trait: &ItemTrait, supertraits: &[Supertrait]) -> ItemTrait {
+    let erase_items = |trait_item: &ItemTrait| {
+        dyn_compatible_items(&trait_item.items)
+            .cloned()
+            .map(|mut item| {
+                if let TraitItem::Fn(ref mut trait_item_fn) = item {
+                    // Remove default method if any for the erased trait
+                    trait_item_fn.default = None;
+
+                    expand_fn_sig(&trait_item.generics, &mut trait_item_fn.sig);
+                }
+
+                item
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let items: Vec<_> = erase_items(item_trait)
+        .into_iter()
+        .chain(supertraits.iter().flat_map(|s| erase_items(&s.item)))
+        .collect();
+
+    let bounds = unresolved_bounds(item_trait, supertraits)
+        .chain(
+            supertraits
+                .iter()
+                .flat_map(|s| unresolved_bounds(&s.item, supertraits)),
+        )
         .cloned()
-        .map(|mut trait_item| {
-            if let TraitItem::Fn(ref mut trait_item_fn) = trait_item {
-                // Remove default method if any for the erased trait
-                trait_item_fn.default = None;
-
-                expand_fn_sig(&item_trait.generics, &mut trait_item_fn.sig);
-            }
-
-            trait_item
-        })
         .collect();
 
     ItemTrait {
         ident: trait_item_erased_name(&item_trait.ident),
         items,
+        supertraits: bounds,
         ..item_trait.clone()
     }
 }
 
-fn mk_erased_trait_blanket_impl(item_trait: &ItemTrait) -> TokenStream {
+fn mk_erased_trait_blanket_impl(item_trait: &ItemTrait, supertraits: &[Supertrait]) -> TokenStream {
     // Check for where_self_sized and error, we need to remove this and properly handle where
     // Self: Sized
     for trait_item in &item_trait.items {
@@ -370,23 +476,35 @@ fn mk_erased_trait_blanket_impl(item_trait: &ItemTrait) -> TokenStream {
     let erased_trait_ident = trait_item_erased_name(&trait_ident);
     let (_, trait_generics, _) = &item_trait.generics.split_for_impl();
 
-    let items = dyn_compatible_items(&item_trait.items)
-        .cloned()
-        .map(|trait_item| {
-            match trait_item {
-                TraitItem::Const(_) => Error::new_spanned(trait_item, "consts make the trait not dyn compatible").into_compile_error(),
-                TraitItem::Fn(mut trait_item_fn) => {
-                    expand_blanket_impl_fn(item_trait, &mut trait_item_fn.sig)
-                }
-                TraitItem::Type(TraitItemType { ident, generics, .. }) => {
-                    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-                    quote! {
-                        type #ident #impl_generics = <Self as #trait_ident #trait_generics>:: #ident #ty_generics #where_clause;
+    // Forward each item to the trait that declares it: `<Self as Foo>::x` for
+    // the trait's own items, `<Self as path::to::Bar>::y` for a supertrait's.
+    let forward_items = |trait_path: &Path, trait_item: &ItemTrait| {
+        let (_, trait_generics, _) = trait_item.generics.split_for_impl();
+        dyn_compatible_items(&trait_item.items)
+            .cloned()
+            .map(move |item| {
+                match item {
+                    TraitItem::Const(_) => Error::new_spanned(item, "consts make the trait not dyn compatible").into_compile_error(),
+                    TraitItem::Fn(mut trait_item_fn) => {
+                        expand_blanket_impl_fn(trait_path, trait_item, &mut trait_item_fn.sig)
                     }
+                    TraitItem::Type(TraitItemType { ident, generics, .. }) => {
+                        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+                        quote! {
+                            type #ident #impl_generics = <Self as #trait_path #trait_generics>:: #ident #ty_generics #where_clause;
+                        }
+                    }
+                    _ => Error::new_spanned(item, "unsupported item type").into_compile_error(),
                 }
-                _ => Error::new_spanned(trait_item, "unsupported item type").into_compile_error(),
-            }
-        });
+            })
+            .collect::<Vec<_>>()
+    };
+    let own_path: Path = parse_quote!(#trait_ident);
+    let items = forward_items(&own_path, item_trait).into_iter().chain(
+        supertraits
+            .iter()
+            .flat_map(|s| forward_items(&s.path, &s.item)),
+    );
 
     let blanket_bound: TypeParam = parse_quote!(DYNOSAUR: #trait_ident #trait_generics);
     let blanket = blanket_bound.ident.clone();
@@ -404,15 +522,18 @@ fn mk_erased_trait_blanket_impl(item_trait: &ItemTrait) -> TokenStream {
     }
 }
 
-fn mk_dyn_struct(struct_ident: &Ident, item_trait: &ItemTrait) -> TokenStream {
+fn mk_dyn_struct(
+    struct_ident: &Ident,
+    item_trait: &ItemTrait,
+    erased_trait: &ItemTrait,
+) -> TokenStream {
     let trait_ident = &item_trait.ident;
-    let erased_trait = mk_erased_trait(&item_trait);
     let erased_trait_ident = &erased_trait.ident;
     let StructTraitParams {
         struct_with_bounds_params,
         trait_params,
         ..
-    } = struct_trait_params(&erased_trait);
+    } = struct_trait_params(erased_trait);
 
     let doc = format!("Dyn-compatible wrapper for [`{trait_ident}`].");
 
@@ -425,8 +546,15 @@ fn mk_dyn_struct(struct_ident: &Ident, item_trait: &ItemTrait) -> TokenStream {
     }
 }
 
-fn mk_dyn_struct_impl_item(struct_ident: &Ident, item_trait: &ItemTrait) -> TokenStream {
-    let item_trait_ident = &item_trait.ident;
+/// `impl Trait for DynStruct<...>` for the trait itself and for each resolved
+/// supertrait; the struct's params always come from the erased trait, which
+/// carries every associated type involved.
+fn mk_dyn_struct_impl_item(
+    struct_ident: &Ident,
+    item_trait_path: &Path,
+    item_trait: &ItemTrait,
+    erased_trait: &ItemTrait,
+) -> TokenStream {
     let (_, trait_generics, where_clause) = &item_trait.generics.split_for_impl();
 
     let items = item_trait.items.iter().map(|item| match item {
@@ -450,24 +578,27 @@ fn mk_dyn_struct_impl_item(struct_ident: &Ident, item_trait: &ItemTrait) -> Toke
         struct_params,
         struct_with_bounds_params,
         ..
-    } = struct_trait_params(item_trait);
+    } = struct_trait_params(erased_trait);
 
     quote! {
-        impl #struct_with_bounds_params #item_trait_ident #trait_generics for #struct_ident #struct_params #where_clause
+        impl #struct_with_bounds_params #item_trait_path #trait_generics for #struct_ident #struct_params #where_clause
         {
             #(#items)*
         }
     }
 }
 
-fn mk_struct_inherent_impl(struct_ident: &Ident, item_trait: &ItemTrait) -> TokenStream {
+fn mk_struct_inherent_impl(
+    struct_ident: &Ident,
+    item_trait: &ItemTrait,
+    erased_trait: &ItemTrait,
+) -> TokenStream {
     let trait_ident = &item_trait.ident;
-    let erased_trait = mk_erased_trait(item_trait);
     let StructTraitParams {
         struct_params,
         struct_with_bounds_params,
         trait_params,
-    } = struct_trait_params(&erased_trait);
+    } = struct_trait_params(erased_trait);
     let erased_trait_ident = &erased_trait.ident;
 
     let mut where_bounds: Punctuated<_, Token![,]> = Punctuated::new();
@@ -561,6 +692,7 @@ fn mk_struct_inherent_impl(struct_ident: &Ident, item_trait: &ItemTrait) -> Toke
 fn mk_box_blanket_impl(
     struct_ident: &Ident,
     item_trait: &ItemTrait,
+    erased_trait: &ItemTrait,
     blanket: Bridge,
 ) -> TokenStream {
     let item_trait_ident = &item_trait.ident;
@@ -577,7 +709,7 @@ fn mk_box_blanket_impl(
                     }
                 }
                 Bridge::Dyn => {
-                    let StructTraitParams { struct_params, .. } = struct_trait_params(item_trait);
+                    let StructTraitParams { struct_params, .. } = struct_trait_params(erased_trait);
                     quote! {
                         <#struct_ident #struct_params as #item_trait_ident #trait_generics>
                     }
@@ -649,7 +781,7 @@ fn mk_box_blanket_impl(
                 struct_params,
                 struct_with_bounds_params,
                 ..
-            } = struct_trait_params(item_trait);
+            } = struct_trait_params(erased_trait);
 
             let mut where_bounds: Punctuated<_, Token![,]> = Punctuated::new();
 

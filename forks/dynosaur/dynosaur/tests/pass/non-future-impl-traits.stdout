@@ -6,6 +6,26 @@ trait SomeTrait {
     fn get_iter(&mut self)
     -> impl Iterator<Item = u8> + '_;
 }
+#[doc =
+"Internal: carries the definition of [`SomeTrait`] so it can be a supertrait of another `#[dynosaur]` trait."]
+#[doc(hidden)]
+macro_rules! __dynosaur_SomeTrait {
+    ($ ($rest : tt) *) =>
+    {
+        :: dynosaur :: __resolve_supertraits!
+        {
+            $ ($rest) * supertrait
+            {
+                trait SomeTrait
+                {
+                    fn get_iter(& mut self) -> impl Iterator < Item = u8 > + '_;
+                }
+            }
+        }
+    };
+}
+#[doc(hidden)]
+use __dynosaur_SomeTrait;
 mod __dynosaur_macro_dynsometrait {
     extern crate alloc as __dynosaur_alloc;
     use __dynosaur_alloc::boxed::Box as _Box;
