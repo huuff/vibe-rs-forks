@@ -1,8 +1,0 @@
-error: cannot find macro `__dynosaur_Bar` in this scope
-  --> fail/non-dynosaur-supertrait.rs:10:12
-   |
-10 | trait Foo: Bar {
-   |            ^^^
-
-error: aborting due to 1 previous error
-
