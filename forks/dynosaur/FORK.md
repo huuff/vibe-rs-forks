@@ -12,6 +12,11 @@
   it and the `__resolve_supertraits!` proc macro finishes the job. Code in
   `dynosaur_derive/src/supertraits.rs`; tests `tests/pass/supertraits*.rs`,
   `tests/fail/*supertrait*.rs`; docs in the `dynosaur` macro doc comment.
+- Receivers of carried supertrait methods are re-spanned to the subtrait's
+  hygiene context, so attribute macros that synthesize `self` (e.g.
+  `mockall::automock`, which dynosaur copies onto the erased trait) can see
+  them. Regression test: `tests/supertraits-automock.rs` (plain cargo test,
+  needs the `mockall` dev-dependency).
 
 ## Testing
 

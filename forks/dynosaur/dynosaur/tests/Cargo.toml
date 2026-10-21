@@ -21,3 +21,10 @@ harness = false
 
 [dev-dependencies]
 ui_test = "0.28"
+
+[[test]]
+name = "supertraits-automock"
+path = "supertraits-automock.rs"
+
+[dev-dependencies.mockall]
+version = "0.15"
