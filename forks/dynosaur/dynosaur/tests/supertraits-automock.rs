@@ -6,7 +6,7 @@
 
 use dynosaur::dynosaur;
 
-#[dynosaur(DynStore = dyn(box) Store)]
+#[dynosaur(_)]
 #[mockall::automock]
 trait Store {
     fn key(&self) -> &'static str;

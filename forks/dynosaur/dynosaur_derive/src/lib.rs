@@ -27,7 +27,15 @@ mod supertraits;
 mod traits;
 mod where_clauses;
 
-struct Attrs {
+enum Attrs {
+    /// `#[dynosaur(_)]`: emit only the trait and its callback macro, so it
+    /// can be a supertrait of other `#[dynosaur]` traits without a `Dyn*`
+    /// type of its own.
+    Discard,
+    Erase(EraseAttrs),
+}
+
+struct EraseAttrs {
     vis: Visibility,
     ident: Ident,
     target: Target,
@@ -46,7 +54,14 @@ enum Bridge {
 
 impl Parse for Attrs {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Attrs {
+        if input.peek(Token![_]) {
+            input.parse::<Token![_]>()?;
+            if !input.is_empty() {
+                return Err(input.error("`_` takes no options"));
+            }
+            return Ok(Attrs::Discard);
+        }
+        Ok(Attrs::Erase(EraseAttrs {
             vis: input.parse()?,
             ident: input.parse()?,
             target: {
@@ -82,7 +97,7 @@ impl Parse for Attrs {
             } else {
                 None
             },
-        })
+        }))
     }
 }
 
@@ -266,6 +281,17 @@ impl Parse for Bridge {
 /// `DynFoo` then implements both `Foo` and `Bar`, and a supertrait's
 /// associated types become type parameters of `DynFoo` like the trait's own.
 ///
+/// A trait that only serves as a supertrait can skip its own `Dyn*` type
+/// with `#[dynosaur(_)]`; it then expands to just the trait and the hidden
+/// macro below. `_` takes no options.
+///
+/// ```rust,ignore
+/// #[dynosaur(_)]
+/// trait Bar {
+///     fn bar(&self) -> i32;
+/// }
+/// ```
+///
 /// How it works: `#[dynosaur]` on `Bar` also emits a hidden
 /// `macro_rules! __dynosaur_Bar` carrying `Bar`'s definition, and `Foo`'s
 /// expansion calls it to obtain `Bar`'s items. Consequences:
@@ -327,11 +353,13 @@ pub fn dynosaur(
         Err(err) => return err.to_compile_error().into(),
     };
     let item_trait = parse_macro_input!(item as ItemTrait);
-    if attrs.target.trait_name != item_trait.ident {
-        // This attribute is being applied to a different trait than the one
-        // named (possibly one created by trait_variant).
-        // TODO: Add checking in case a trait is missing or misspelled.
-        return quote! { #item_trait }.into();
+    if let Attrs::Erase(erase) = &attrs {
+        if erase.target.trait_name != item_trait.ident {
+            // This attribute is being applied to a different trait than the one
+            // named (possibly one created by trait_variant).
+            // TODO: Add checking in case a trait is missing or misspelled.
+            return quote! { #item_trait }.into();
+        }
     }
 
     resolve_or_expand(attr, item_trait, Vec::new(), |item_trait, supertraits| {
@@ -365,6 +393,17 @@ pub fn __resolve_supertraits(input: proc_macro::TokenStream) -> proc_macro::Toke
 }
 
 fn expand(attrs: &Attrs, item_trait: &ItemTrait, supertraits: &[Supertrait]) -> TokenStream {
+    let callback_macro = mk_callback_macro(item_trait, supertraits);
+    let attrs = match attrs {
+        Attrs::Discard => {
+            return quote! {
+                #item_trait
+
+                #callback_macro
+            }
+        }
+        Attrs::Erase(attrs) => attrs,
+    };
     let vis = &attrs.vis;
     let struct_ident = &attrs.ident;
 
@@ -388,7 +427,6 @@ fn expand(attrs: &Attrs, item_trait: &ItemTrait, supertraits: &[Supertrait]) -> 
             mk_box_blanket_impl(struct_ident, item_trait, &erased_trait, Bridge::Dyn)
         }
     };
-    let callback_macro = mk_callback_macro(item_trait, supertraits);
 
     let dynosaur_mod = Ident::new(
         &format!(
