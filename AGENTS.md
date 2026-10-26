@@ -23,7 +23,7 @@ with its own `Cargo.toml`/`Cargo.lock`. There is no root Cargo workspace
 git clone --depth 1 <upstream-url> forks/<name> && rm -rf forks/<name>/.git
 ```
 
-Write `forks/<name>/AGENTS.md`: upstream URL and base commit, then one
+Write `forks/<name>/FORK.md`: upstream URL and base commit, then one
 section per patch (what, why, where the code and tests are). Read it before
 touching a fork and extend it with every patch; it is the only record of
 how the fork differs from upstream. Keep patches minimal and in upstream
