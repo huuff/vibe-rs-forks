@@ -121,6 +121,16 @@ fn get_locale_from_path<L: Locale>(path: &str, base_path: &str) -> Option<L> {
         .find(|l| l.as_str() == to_match)
 }
 
+/// The locale a path's prefix stands for: a missing prefix means the default locale,
+/// unless the default locale must be prefixed too, in which case it stands for nothing.
+fn locale_of_prefix<L: Locale>(path_locale: Option<L>, prefix_default: bool) -> Option<L> {
+    if prefix_default {
+        path_locale
+    } else {
+        Some(path_locale.unwrap_or_default())
+    }
+}
+
 fn construct_path_segments<'b, 'p: 'b>(
     segments: &[&'p str],
     new_segments: &'p [PathSegment],
@@ -187,6 +197,7 @@ fn localize_path<'b, 'p: 'b>(
 fn get_new_path<L: Locale>(
     location: &Location,
     base_path: &str,
+    prefix_default: bool,
     new_locale: L,
     locale: Option<L>,
     segments: &RouteSegments<L>,
@@ -194,7 +205,7 @@ fn get_new_path<L: Locale>(
     let mut new_path = location.pathname.with_untracked(|path_name| {
         let mut path_builder = PathBuilder::default();
         path_builder.push(base_path);
-        if new_locale != L::default() {
+        if prefix_default || new_locale != L::default() {
             path_builder.push(new_locale.as_str());
         }
         if let Some(path_rest) = path_name.strip_prefix(base_path) {
@@ -252,6 +263,7 @@ fn get_new_path<L: Locale>(
 fn update_path_effect<L: Locale>(
     i18n: I18nContext<L>,
     base_path: &'static str,
+    prefix_default: bool,
     history_changed_locale: Rc<Cell<Option<L>>>,
     segments: Arc<RouteSegments<L>>,
 ) -> impl Fn(Option<L>) -> L + 'static {
@@ -270,11 +282,20 @@ fn update_path_effect<L: Locale>(
         let Some(prev_loc) = prev_loc else {
             return new_locale;
         };
-        if new_locale == prev_loc || new_locale == path_locale.unwrap_or_default() {
+        if new_locale == prev_loc
+            || Some(new_locale) == locale_of_prefix(path_locale, prefix_default)
+        {
             return new_locale;
         }
 
-        let new_path = get_new_path(&location, base_path, new_locale, Some(prev_loc), &segments);
+        let new_path = get_new_path(
+            &location,
+            base_path,
+            prefix_default,
+            new_locale,
+            Some(prev_loc),
+            &segments,
+        );
 
         let navigate = navigate.clone();
 
@@ -298,6 +319,7 @@ fn update_path_effect<L: Locale>(
 fn correct_locale_prefix_effect<L: Locale>(
     i18n: I18nContext<L>,
     base_path: &'static str,
+    prefix_default: bool,
     segments: Arc<RouteSegments<L>>,
     history_changed: Rc<Cell<bool>>,
 ) -> impl Fn(Option<()>) + 'static {
@@ -309,7 +331,7 @@ fn correct_locale_prefix_effect<L: Locale>(
             .with(|path| get_locale_from_path::<L>(path, base_path));
         let current_locale = i18n.get_locale_untracked();
 
-        if current_locale == path_locale.unwrap_or_default() {
+        if Some(current_locale) == locale_of_prefix(path_locale, prefix_default) {
             return;
         }
 
@@ -320,7 +342,14 @@ fn correct_locale_prefix_effect<L: Locale>(
             path_locale.unwrap_or(current_locale)
         };
 
-        let new_path = get_new_path(&location, base_path, new_locale, path_locale, &segments);
+        let new_path = get_new_path(
+            &location,
+            base_path,
+            prefix_default,
+            new_locale,
+            path_locale,
+            &segments,
+        );
 
         let navigate = navigate.clone();
 
@@ -367,15 +396,20 @@ fn check_history_change<L: Locale>(
 fn maybe_redirect<L: Locale>(
     previously_resolved_locale: L,
     base_path: &str,
+    prefix_default: bool,
     segments: &RouteSegments<L>,
 ) -> Option<String> {
     let location = use_location();
-    if cfg!(not(feature = "ssr")) || previously_resolved_locale == L::default() {
+    // the URL has no locale prefix; nothing to do if that already stands for the resolved locale.
+    if cfg!(not(feature = "ssr"))
+        || locale_of_prefix(None, prefix_default) == Some(previously_resolved_locale)
+    {
         return None;
     }
     let new_path = get_new_path(
         &location,
         base_path,
+        prefix_default,
         previously_resolved_locale,
         None,
         segments,
@@ -408,6 +442,7 @@ fn view_wrapper<L, View>(
     view: View,
     route_locale: Option<L>,
     base_path: &'static str,
+    prefix_default: bool,
     segments: Arc<RouteSegments<L>>,
 ) -> Either<View, impl ChooseView>
 where
@@ -425,7 +460,12 @@ where
         i18n.set_locale(locale);
         None
     } else {
-        maybe_redirect(previously_resolved_locale, base_path, &segments)
+        maybe_redirect(
+            previously_resolved_locale,
+            base_path,
+            prefix_default,
+            &segments,
+        )
     };
 
     // This variable is there to sync history changes, because we step out of the Leptos routes reactivity we don't get forward and backward history changes triggers
@@ -439,6 +479,7 @@ where
     Effect::new(update_path_effect(
         i18n,
         base_path,
+        prefix_default,
         sync.clone(),
         segments.clone(),
     ));
@@ -455,6 +496,7 @@ where
     Effect::new(correct_locale_prefix_effect(
         i18n,
         base_path,
+        prefix_default,
         segments,
         history_changed,
     ));
@@ -471,6 +513,7 @@ where
 #[doc(hidden)]
 pub fn i18n_routing<L: Locale, View, Chil>(
     base_path: &'static str,
+    prefix_default: bool,
     children: RouteChildren<Chil>,
     ssr_mode: SsrMode,
     view: View,
@@ -486,7 +529,7 @@ where
 
     let segments = generate_routes_for_each_locale::<L, _, _>(&base_route);
 
-    I18nNestedRoute::new(base_path, base_route, Arc::new(segments))
+    I18nNestedRoute::new(base_path, prefix_default, base_route, Arc::new(segments))
 }
 
 type RouteSegments<L> = HashMap<L, Vec<Vec<PathSegment>>>;
@@ -495,18 +538,21 @@ type RouteSegments<L> = HashMap<L, Vec<Vec<PathSegment>>>;
 struct I18nNestedRoute<L, View, Chil> {
     route: BaseRoute<View, Chil>,
     base_path: &'static str,
+    prefix_default: bool,
     segments: Arc<RouteSegments<L>>,
 }
 
 impl<L, View, Chil> I18nNestedRoute<L, View, Chil> {
     pub fn new(
         base_path: &'static str,
+        prefix_default: bool,
         route: BaseRoute<View, Chil>,
         segments: Arc<RouteSegments<L>>,
     ) -> Self {
         Self {
             route,
             base_path,
+            prefix_default,
             segments,
         }
     }
@@ -554,6 +600,7 @@ where
 {
     locale: Option<L>,
     base_path: &'static str,
+    prefix_default: bool,
     matched: String,
     inner_match: <BaseRoute<View, Chil> as MatchNestedRoutes>::Match,
     segments: Arc<RouteSegments<L>>,
@@ -594,6 +641,7 @@ where
                 view.clone(),
                 self.locale,
                 self.base_path,
+                self.prefix_default,
                 self.segments.clone(),
             )
         };
@@ -634,6 +682,7 @@ where
                             matched,
                             inner_match,
                             base_path: self.base_path,
+                            prefix_default: self.prefix_default,
                             segments: self.segments.clone(),
                         };
                         Some((Some((route_match_id, route_match)), remaining))
@@ -648,6 +697,7 @@ where
                         matched: String::new(),
                         inner_match,
                         base_path: self.base_path,
+                        prefix_default: self.prefix_default,
                         segments: self.segments.clone(),
                     };
                     (Some((route_match_id, route_match)), remaining)
@@ -803,5 +853,78 @@ where
     I18nPath {
         func: f,
         marker: PhantomData,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use leptos_router::location::State;
+
+    leptos_i18n::declare_locales! {
+        path: leptos_i18n,
+        default: "en",
+        locales: ["en", "fr"],
+        en: {},
+        fr: {},
+    }
+
+    use i18n::Locale;
+
+    fn location(pathname: &str) -> Location {
+        let pathname = pathname.to_owned();
+        Location {
+            pathname: Memo::new(move |_| pathname.clone()),
+            search: Memo::new(|_| String::new()),
+            query: Memo::new(|_| Default::default()),
+            hash: Memo::new(|_| String::new()),
+            state: RwSignal::new(State::new(None)).read_only(),
+        }
+    }
+
+    fn new_path(
+        pathname: &str,
+        prefix_default: bool,
+        new_locale: Locale,
+        locale: Option<Locale>,
+    ) -> String {
+        get_new_path(
+            &location(pathname),
+            "/",
+            prefix_default,
+            new_locale,
+            locale,
+            &RouteSegments::default(),
+        )
+    }
+
+    #[test]
+    fn locale_of_prefix_default() {
+        assert_eq!(locale_of_prefix::<Locale>(None, false), Some(Locale::en));
+        assert_eq!(locale_of_prefix::<Locale>(None, true), None);
+        assert_eq!(locale_of_prefix(Some(Locale::fr), false), Some(Locale::fr));
+        assert_eq!(locale_of_prefix(Some(Locale::fr), true), Some(Locale::fr));
+    }
+
+    #[test]
+    fn default_locale_is_unprefixed() {
+        assert_eq!(
+            new_path("/fr/counter", false, Locale::en, Some(Locale::fr)),
+            "/counter"
+        );
+        assert_eq!(new_path("/counter", false, Locale::fr, None), "/fr/counter");
+        assert_eq!(new_path("/fr", false, Locale::en, Some(Locale::fr)), "/");
+    }
+
+    #[test]
+    fn default_locale_is_prefixed_when_forced() {
+        assert_eq!(
+            new_path("/fr/counter", true, Locale::en, Some(Locale::fr)),
+            "/en/counter"
+        );
+        assert_eq!(new_path("/counter", true, Locale::en, None), "/en/counter");
+        assert_eq!(new_path("/counter", true, Locale::fr, None), "/fr/counter");
+        assert_eq!(new_path("/fr", true, Locale::en, Some(Locale::fr)), "/en");
+        assert_eq!(new_path("/", true, Locale::en, None), "/en");
     }
 }

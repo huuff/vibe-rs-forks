@@ -47,6 +47,19 @@ This means if you access `"/counter"` with the cookie set to `fr` (default being
 
 Switching locale updates the prefix accordingly. Switching from `en` to `fr` will set the prefix to `fr`, but switching to the default locale will remove the locale prefix entirely.
 
+## Prefixing the Default Locale
+
+If you want every URL to carry a locale prefix, including the default locale, set `prefix_default_locale=true`:
+
+```rust,ignore
+<I18nRoute<Locale, _, _> view=Outlet prefix_default_locale=true>
+    <Route path=path!("") view=Home />
+    <Route path=path!("counter") view=Counter />
+</I18nRoute<Locale, _, _>>
+```
+
+The unprefixed routes `"/"` and `"/counter"` still exist, but they only redirect: accessing `"/counter"` navigates to `"/en/counter"` (or `"/fr/counter"` if the resolved locale is `fr`), and switching to the default locale navigates to `"/en/counter"` instead of `"/counter"`.
+
 ## State Keeping
 
 Switching locale will trigger a navigation, update the `Location` returned by `use_location`, but will not refresh the component tree.

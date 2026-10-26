@@ -13,6 +13,11 @@ pub fn I18nRoute<L, View, Chil>(
     /// Defaults to `"/"`.
     #[prop(default = "/")]
     base_path: &'static str,
+    /// Prefix the default locale too, so that `/counter` redirects to `/en/counter`
+    /// and switching to the default locale navigates to `/en/counter` instead of `/counter`.
+    /// Defaults to `false`.
+    #[prop(default = false)]
+    prefix_default_locale: bool,
     /// The view that should be shown when this route is matched. This can be any function
     /// that returns a type that implements [`IntoView`] (like `|| view! { <p>"Show this"</p> })`
     /// or `|| view! { <MyComponent/>` } or even, for a component with no props, `MyComponent`).
@@ -30,7 +35,13 @@ where
     Chil: MatchNestedRoutes + Send + Clone + 'static,
     L: Locale,
 {
-    let routes = crate::routing::i18n_routing::<L, View, Chil>(base_path, children, ssr, view);
+    let routes = crate::routing::i18n_routing::<L, View, Chil>(
+        base_path,
+        prefix_default_locale,
+        children,
+        ssr,
+        view,
+    );
     #[cfg(erase_components)]
     return routes.into_any_nested_route();
     #[cfg(not(erase_components))]
