@@ -1,0 +1,246 @@
+#![doc(hidden)]
+
+use std::fmt::Debug;
+
+use crate::Locale;
+
+#[cfg(feature = "dynamic_load")]
+pub use async_once_cell::OnceCell;
+
+pub trait TranslationUnit: Sized {
+    type Locale: Locale;
+    const ID: <Self::Locale as Locale>::TranslationUnitId;
+    const LOCALE: Self::Locale;
+    type Strings: StringArray;
+    #[cfg(not(all(feature = "dynamic_load", not(feature = "ssr"))))]
+    const STRINGS: &'static Self::Strings;
+
+    #[cfg(all(feature = "dynamic_load", not(feature = "ssr")))]
+    fn get_strings_lock() -> &'static OnceCell<Box<Self::Strings>>;
+
+    #[cfg(all(feature = "dynamic_load", not(feature = "ssr")))]
+    fn request_strings()
+    -> impl std::future::Future<Output = &'static Self::Strings> + Send + Sync + 'static {
+        let string_lock = Self::get_strings_lock();
+        let fut = string_lock.get_or_init(async {
+            let translations = Locale::request_translations(Self::LOCALE, Self::ID)
+                .await
+                .unwrap();
+            StringArray::cast(translations.0)
+        });
+        async move { core::ops::Deref::deref(fut.await) }
+    }
+
+    #[cfg(all(feature = "dynamic_load", feature = "hydrate", not(feature = "ssr")))]
+    fn init_translations(values: Vec<Box<str>>) {
+        let string_lock = Self::get_strings_lock();
+        let fut = string_lock.get_or_init(async { StringArray::cast(values) });
+        futures::executor::block_on(fut);
+    }
+
+    #[cfg(all(feature = "dynamic_load", feature = "ssr"))]
+    fn register() {
+        RegisterCtx::register::<Self>();
+    }
+}
+
+pub trait StringArray: 'static + Send + Sync + Debug {
+    fn cast(strings: Vec<Box<str>>) -> Box<Self>;
+    fn as_slice(&self) -> &[&'static str];
+}
+
+impl<const SIZE: usize> StringArray for [Box<str>; SIZE] {
+    fn cast(strings: Vec<Box<str>>) -> Box<Self> {
+        strings.into_boxed_slice().try_into().unwrap()
+    }
+
+    fn as_slice(&self) -> &[&'static str] {
+        unreachable!("This function should not have been called on the client !")
+    }
+}
+
+impl<const SIZE: usize> StringArray for [&'static str; SIZE] {
+    fn cast(_: Vec<Box<str>>) -> Box<Self> {
+        unreachable!("This function should not have been called on the server !")
+    }
+
+    fn as_slice(&self) -> &[&'static str] {
+        self
+    }
+}
+
+#[cfg(all(feature = "dynamic_load", feature = "ssr"))]
+pub type LocaleServerFnOutput = LocaleServerFnOutputServer;
+
+#[cfg(all(feature = "dynamic_load", not(feature = "ssr")))]
+pub type LocaleServerFnOutput = LocaleServerFnOutputClient;
+
+pub struct LocaleServerFnOutputServer(&'static [&'static str]);
+pub struct LocaleServerFnOutputClient(pub Vec<Box<str>>);
+
+impl LocaleServerFnOutputServer {
+    pub const fn new(strings: &'static [&'static str]) -> Self {
+        LocaleServerFnOutputServer(strings)
+    }
+}
+
+impl LocaleServerFnOutputClient {
+    pub fn new(_: &'static [&'static str]) -> Self {
+        unreachable!("This function should not have been called on the server !")
+    }
+}
+
+impl serde::Serialize for LocaleServerFnOutputServer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(self.0, serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LocaleServerFnOutputServer {
+    fn deserialize<D>(_: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        unreachable!("This function should not have been called on the server !")
+    }
+}
+
+impl serde::Serialize for LocaleServerFnOutputClient {
+    fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        unreachable!("This function should not have been called on the client !")
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LocaleServerFnOutputClient {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let arr = serde::Deserialize::deserialize(deserializer)?;
+        Ok(LocaleServerFnOutputClient(arr))
+    }
+}
+
+#[cfg(all(feature = "dynamic_load", any(feature = "hydrate", feature = "ssr")))]
+const JS_PREFIX: &str = "window.__LEPTOS_I18N_TRANSLATIONS=";
+
+#[cfg(all(feature = "dynamic_load", feature = "ssr"))]
+mod register {
+    use super::*;
+    use crate::locale_traits::TranslationUnitId;
+    use leptos::prelude::{provide_context, use_context};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
+
+    type RegisterCtxMap<L, Id> = HashMap<(L, Id), &'static [&'static str]>;
+
+    #[derive(Clone)]
+    pub struct RegisterCtx<L: Locale>(Arc<Mutex<RegisterCtxMap<L, L::TranslationUnitId>>>);
+
+    impl<L: Locale> RegisterCtx<L> {
+        pub fn provide_context() -> Self {
+            let inner = Arc::new(Mutex::new(HashMap::new()));
+            provide_context(RegisterCtx(inner.clone()));
+            RegisterCtx(inner)
+        }
+
+        pub fn register<T: TranslationUnit<Locale = L>>() {
+            if let Some(this) = use_context::<Self>() {
+                let mut inner_guard = this.0.lock().unwrap();
+                inner_guard.insert((T::LOCALE, T::ID), T::STRINGS.as_slice());
+            }
+        }
+
+        pub fn to_array(&self) -> String {
+            #[derive(serde::Serialize)]
+            struct TranslationOut<'a> {
+                locale: &'a str,
+                id: Option<&'a str>,
+                values: &'a [&'a str],
+            }
+            let inner_guard = self.0.lock().unwrap();
+
+            let entries: Vec<TranslationOut<'_>> = inner_guard
+                .iter()
+                .map(|((locale, id), values)| TranslationOut {
+                    locale: locale.as_str(),
+                    id: id.to_str(),
+                    values,
+                })
+                .collect();
+
+            let json = serde_json::to_string(&entries).unwrap();
+
+            let mut result = String::with_capacity(JS_PREFIX.len() + json.len() + 1);
+            result.push_str(JS_PREFIX);
+            result.push_str(&json);
+            result.push(';');
+            result
+        }
+    }
+}
+
+#[cfg(all(feature = "dynamic_load", feature = "ssr"))]
+pub use register::RegisterCtx;
+
+#[cfg(all(feature = "dynamic_load", feature = "hydrate"))]
+pub fn init_translations<L: Locale>() -> impl leptos::IntoView {
+    use crate::locale_traits::TranslationUnitId;
+    use leptos::{html::InnerHtmlAttribute, view, web_sys};
+    use wasm_bindgen::UnwrapThrowExt;
+
+    #[derive(serde::Serialize)]
+    struct TranslationOut<'a> {
+        locale: &'a str,
+        id: Option<&'a str>,
+        values: &'a [Box<str>],
+    }
+
+    #[derive(serde::Deserialize)]
+    struct TranslationIn<L, Id> {
+        locale: L,
+        id: Id,
+        values: Vec<Box<str>>,
+    }
+
+    let translations = js_sys::Reflect::get(
+        &web_sys::window().unwrap_throw(),
+        &wasm_bindgen::JsValue::from_str("__LEPTOS_I18N_TRANSLATIONS"),
+    )
+    .expect_throw("No __LEPTOS_I18N_TRANSLATIONS found in the JS global scope");
+
+    let translations: Vec<TranslationIn<L, L::TranslationUnitId>> =
+        serde_wasm_bindgen::from_value(translations)
+            .expect_throw("Failed parsing the translations.");
+
+    let json = {
+        let entries: Vec<TranslationOut<'_>> = translations
+            .iter()
+            .map(|TranslationIn { locale, id, values }| {
+                L::init_translations(*locale, *id, values.clone());
+
+                TranslationOut {
+                    locale: locale.as_str(),
+                    id: id.to_str(),
+                    values,
+                }
+            })
+            .collect();
+        serde_json::to_string(&entries).unwrap_throw()
+    };
+
+    let mut buf = String::with_capacity(JS_PREFIX.len() + json.len() + 1);
+    buf.push_str(JS_PREFIX);
+    buf.push_str(&json);
+    buf.push(';');
+
+    view! { <script inner_html=buf /> }
+}

@@ -1,0 +1,184 @@
+[package]
+name = "leptos_i18n"
+version = { workspace = true }
+edition = "2024"
+authors = ["Baptiste de Montangon"]
+license = "MIT"
+repository = "https://github.com/Baptistemontan/leptos_i18n"
+description = "Translations integration helper for the Leptos web framework"
+readme = "../README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+leptos-use = { default-features = false, features = [
+  "use_locales",
+  "use_cookie",
+], workspace = true }
+leptos_i18n_macro = { workspace = true }
+leptos = { workspace = true, default-features = false }
+leptos_meta = { workspace = true, default-features = false }
+codee = { workspace = true, default-features = true }
+icu_locale = { workspace = true, default-features = false }
+icu_provider = { workspace = true, optional = true, features = [
+  "sync",
+], default-features = false }
+icu_plurals = { workspace = true, optional = true, default-features = false }
+icu_datetime = { workspace = true, optional = true, default-features = false }
+icu_calendar = { workspace = true, optional = true, default-features = false }
+icu_list = { workspace = true, optional = true, default-features = false }
+icu_decimal = { workspace = true, optional = true, default-features = false }
+fixed_decimal = { workspace = true, optional = true, features = [
+  "ryu",
+], default-features = false }
+icu_experimental = { workspace = true, optional = true, features = [
+  "ryu",
+], default-features = false }
+writeable = { workspace = true, default-features = false }
+tinystr = { workspace = true, optional = true, default-features = false }
+typed-builder = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true }
+async-once-cell = { optional = true, workspace = true, default-features = true }
+js-sys = { optional = true, workspace = true, default-features = true }
+serde-wasm-bindgen = { optional = true, workspace = true, default-features = true }
+futures = { optional = true, workspace = true, default-features = true }
+default-struct-builder = { workspace = true, default-features = true }
+wasm-bindgen = { workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
+
+[features]
+default = ["cookie", "icu_compiled_data"]
+unified_contexts = []
+cookie = []
+icu_compiled_data = [
+  "icu_plurals?/compiled_data",
+  "icu_datetime?/compiled_data",
+  "icu_calendar?/compiled_data",
+  "icu_list?/compiled_data",
+  "icu_decimal?/compiled_data",
+  "icu_experimental?/compiled_data",
+  "leptos_i18n_macro/icu_compiled_data",
+]
+nightly = ["leptos/nightly"]
+
+# Formatting features
+all_formats = [
+  "plurals",
+  "format_datetime",
+  "format_list",
+  "format_nums",
+  "format_currency",
+]
+plurals = ["dep:icu_plurals", "dep:icu_provider", "leptos_i18n_macro/plurals"]
+format_datetime = [
+  "dep:icu_datetime",
+  "dep:icu_calendar",
+  "dep:icu_provider",
+  "leptos_i18n_macro/format_datetime",
+]
+format_list = [
+  "dep:icu_list",
+  "dep:icu_provider",
+  "leptos_i18n_macro/format_list",
+]
+format_nums = [
+  "dep:icu_decimal",
+  "dep:fixed_decimal",
+  "dep:icu_provider",
+  "leptos_i18n_macro/format_nums",
+]
+format_currency = [
+  "format_nums",
+  "dep:tinystr",
+  "dep:icu_experimental",
+  "dep:icu_provider",
+  "leptos_i18n_macro/format_currency",
+]
+
+
+# Target features
+actix = ["ssr", "leptos-use/actix"]
+axum = ["ssr", "leptos-use/axum"]
+hydrate = [
+  "leptos/hydrate",
+  "leptos_i18n_macro/hydrate",
+  "dep:js-sys",
+  "dep:serde-wasm-bindgen",
+]
+csr = ["leptos/csr", "leptos_i18n_macro/csr"]
+ssr = [
+  "leptos/ssr",
+  "leptos_meta/ssr",
+  "leptos-use/ssr",
+  "leptos_i18n_macro/ssr",
+]
+islands = ["leptos/islands", "leptos_i18n_macro/islands"]
+dynamic_load = [
+  "leptos_i18n_macro/dynamic_load",
+  "dep:async-once-cell",
+  "dep:futures",
+  "dep:serde_json",
+]
+
+
+# Features needed for the doctests
+[package.metadata."docs.rs"]
+features = [
+  "plurals",
+  "format_datetime",
+  "format_list",
+  "format_nums",
+  "format_currency",
+]
+
+
+[package.metadata.cargo-all-features]
+denylist = [
+  # Always exclude:
+  "ssr", # Should always be enabled via a server integration rather than directly,
+  # formats, already enabled by the "all_formats" feature
+  "plurals",
+  "format_datetime",
+  "format_list",
+  "format_nums",
+  "format_currency",
+]
+skip_feature_sets = [
+  # Axum and Actix features are incompatible with each other
+  [
+    "axum",
+    "actix",
+  ],
+
+  # Only one of `hydrate`, (`axum`, `actix`), `csr` should be enabled in a single crate, exclude to save time:
+  [
+    "actix",
+    "hydrate",
+  ],
+  [
+    "axum",
+    "hydrate",
+  ],
+  [
+    "axum",
+    "actix",
+  ],
+  [
+    "actix",
+    "csr",
+  ],
+  [
+    "axum",
+    "csr",
+  ],
+  [
+    "hydrate",
+    "csr",
+  ],
+  [
+    "dynamic_load",
+    "csr",
+  ],
+]
+
+always_include_features = ["icu_compiled_data", "all_formats"]

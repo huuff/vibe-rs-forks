@@ -1,0 +1,20 @@
+#![deny(warnings)]
+
+pub mod app;
+
+include!(concat!(env!("OUT_DIR"), "/baked_data/mod.rs"));
+include!(concat!(env!("OUT_DIR"), "/i18n/mod.rs"));
+
+// only needed for experimental features (e.g "format_currency")
+extern crate alloc;
+
+#[derive(leptos_i18n::custom_provider::IcuDataProvider)]
+pub struct BakedProvider;
+impl_data_provider!(BakedProvider);
+
+fn main() {
+    use app::App;
+    leptos_i18n::custom_provider::set_icu_data_provider(BakedProvider);
+    console_error_panic_hook::set_once();
+    leptos::mount::mount_to_body(|| leptos::view! { <App /> })
+}

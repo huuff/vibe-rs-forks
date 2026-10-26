@@ -1,0 +1,63 @@
+[package]
+name = "leptos_i18n_macro"
+version = { workspace = true }
+edition = "2024"
+authors = ["Baptiste de Montangon"]
+license = "MIT"
+repository = "https://github.com/Baptistemontan/leptos_i18n"
+description = "Macros for the leptos_i18n crate"
+readme = "../README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+serde = { features = ["rc"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+proc-macro2 = { workspace = true, default-features = true }
+quote = { workspace = true, default-features = true }
+syn = { workspace = true, default-features = true }
+toml = { workspace = true, default-features = true }
+icu_locale = { workspace = true, features = [
+  "compiled_data",
+], default-features = false }
+fixed_decimal = { workspace = true, features = [
+  "ryu",
+], default-features = false }
+leptos_i18n_parser = { workspace = true }
+tinystr = { workspace = true, default-features = false }
+leptos_i18n_codegen = { workspace = true, default-features = true }
+
+[features]
+default = []
+# nightly = []
+islands = ["leptos_i18n_codegen/islands"]
+dynamic_load = ["leptos_i18n_codegen/dynamic_load"]
+hydrate = ["leptos_i18n_codegen/hydrate"]
+csr = ["leptos_i18n_codegen/csr"]
+ssr = ["leptos_i18n_codegen/ssr"]
+plurals = ["leptos_i18n_parser/plurals", "leptos_i18n_codegen/plurals"]
+format_datetime = [
+  "leptos_i18n_parser/format_datetime",
+  "leptos_i18n_codegen/format_datetime",
+]
+format_list = [
+  "leptos_i18n_parser/format_list",
+  "leptos_i18n_codegen/format_list",
+]
+format_nums = [
+  "leptos_i18n_parser/format_nums",
+  "leptos_i18n_codegen/format_nums",
+]
+format_currency = [
+  "leptos_i18n_parser/format_currency",
+  "format_nums",
+  "leptos_i18n_codegen/format_currency",
+]
+icu_compiled_data = []
+
+[package.metadata.cargo-all-features]
+# cargo-all-features don't provide a way to always include one feature in a set, so CI will just do json...
+# denylist = ["nightly"]

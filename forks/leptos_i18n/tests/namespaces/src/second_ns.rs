@@ -1,0 +1,74 @@
+use crate::i18n::*;
+use tests_common::*;
+
+#[test]
+fn common_key() {
+    let en = td!(Locale::en, second_namespace.common_key);
+    assert_eq_rendered!(en, "second namespace");
+    let fr = td!(Locale::fr, second_namespace.common_key);
+    assert_eq_rendered!(fr, "deuxième namespace");
+}
+
+#[test]
+fn click_count() {
+    for i in -5..=5 {
+        let count = move || i;
+        let en = td!(Locale::en, second_namespace.click_count, count);
+        assert_eq_rendered!(en, format!("You clicked {} times", i));
+        let fr = td!(Locale::fr, second_namespace.click_count, count);
+        assert_eq_rendered!(fr, format!("Vous avez cliqué {} fois", i));
+    }
+}
+
+#[test]
+fn click_to_inc() {
+    let en = td!(Locale::en, second_namespace.click_to_inc);
+    assert_eq_rendered!(en, "Click to increment the counter");
+    let fr = td!(Locale::fr, second_namespace.click_to_inc);
+    assert_eq_rendered!(fr, "Cliquez pour incrémenter le compteur");
+}
+
+#[test]
+fn subkey_1() {
+    let en = td!(Locale::en, second_namespace.subkeys.subkey_1);
+    assert_eq_rendered!(en, "subkey_1");
+    let fr = td!(Locale::fr, second_namespace.subkeys.subkey_1);
+    assert_eq_rendered!(fr, "subkey_1");
+}
+
+#[test]
+fn subkey_2() {
+    let b = |children: ChildrenFn| view! { <b>{move || children()}</b> };
+    let en = td!(Locale::en, second_namespace.subkeys.subkey_2, <b>);
+    assert_eq_rendered!(en, "<b>subkey_2</b>");
+    let fr = td!(Locale::fr, second_namespace.subkeys.subkey_2, <b>);
+    assert_eq_rendered!(fr, "<b>subkey_2</b>");
+
+    let b = |children: ChildrenFn| view! { <div>"before "{move || children()}" after"</div> };
+    let en = td!(Locale::en, second_namespace.subkeys.subkey_2, <b>);
+    assert_eq_rendered!(en, "<div>before subkey_2 after</div>");
+    let fr = td!(Locale::fr, second_namespace.subkeys.subkey_2, <b>);
+    assert_eq_rendered!(fr, "<div>before subkey_2 after</div>");
+}
+
+#[test]
+fn foreign_key_to_same_namespace() {
+    let en = td!(Locale::en, second_namespace.foreign_key_to_same_namespace);
+    assert_eq_rendered!(en, "before second namespace after");
+    let fr = td!(Locale::fr, second_namespace.foreign_key_to_same_namespace);
+    assert_eq_rendered!(fr, "before deuxième namespace after");
+}
+
+#[test]
+fn foreign_key_to_another_namespace() {
+    let en = td!(
+        Locale::en,
+        second_namespace.foreign_key_to_another_namespace
+    );
+    assert_eq_rendered!(en, "before first namespace after");
+    let fr = td!(
+        Locale::fr,
+        second_namespace.foreign_key_to_another_namespace
+    );
+    assert_eq_rendered!(fr, "before premier namespace after");
+}
