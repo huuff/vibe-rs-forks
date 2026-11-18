@@ -54,6 +54,7 @@ Available library features:
   - `url`
   - `indexmap`
   - `either`
+  - `nonempty`
 - `always-true-rng`: expose AlwaysTrueRng
 - `maybe-non-empty-collections`: allow to use AlwaysTrueRng to generate non-empty collections
 
