@@ -28,3 +28,17 @@ and locale switching always push the locale segment.
   `Location` by hand to drive `get_new_path` directly; the effects and the
   redirect are browser-only and untested.
 - User docs: "Prefixing the Default Locale" in `docs/book/src/usage/07_router.md`.
+
+### ICU 2.4 (backport from upstream)
+
+The base pins ICU 2.2, whose `icu_provider_source` depends on `zip` 2, a
+version with open RustSec advisories. `icu_provider_source` 2.4 moved to
+`zip` 9. Two upstream commits are backported as they are, so this section
+goes away on the next rebase past them:
+
+- `50260e8` "updated ICU in order to update zip": the ICU version bumps in
+  the workspace `Cargo.toml` (ICU 2.2 to 2.4, `icu_experimental` 0.5 to 0.7).
+- `d703ed5` "fix(currency): port the currency formatter to icu_experimental
+  0.7": the code that bump needs under the `format_currency` feature. Its
+  book changes land in `docs/book/src/`, because upstream moved the book to
+  `leptos_i18n/book/` after our base.
