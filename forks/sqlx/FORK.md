@@ -42,9 +42,15 @@ Behaviour choices, matching `chrono` where there was one:
   like `chrono::Duration`.
 - Values outside jiff's range (`infinity`, year 10000+, `24:00:00`) fail
   to decode instead of panicking.
-- SQLite `Timestamp` encodes as RFC 3339 with `+00:00`, like
-  `DateTime<Utc>`; `civil::DateTime` as `YYYY-MM-DD HH:MM:SS.f`, like
-  `NaiveDateTime`. Text decoding accepts the formats chrono accepts.
+- Stored values are byte-identical to the
+  [`jiff-sqlx`](https://crates.io/crates/jiff-sqlx) 1.0 wrapper crate, so a
+  database can move between the two (checked by binding through one and
+  casting to text). On SQLite this means jiff's `Display`:
+  `2024-03-04T05:06:07.5Z` for `Timestamp`, `2024-03-04T05:06:07.5` for
+  `civil::DateTime`, not chrono's `+00:00` / space-separated forms. SQLite
+  compares `DATETIME` text lexicographically, so don't mix chrono- and
+  jiff-written values in one column. Text decoding accepts both, plus
+  every format chrono accepts.
 - `Zoned` is not supported: no database column stores an IANA time zone.
 
 `query!()` macros: `jiff` is a third date-time crate with the lowest

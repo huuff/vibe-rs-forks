@@ -59,28 +59,29 @@ impl Type<Sqlite> for Time {
     }
 }
 
-/// Encodes as RFC 3339 with a `+00:00` offset, like `chrono::DateTime<Utc>`.
+/// Encodes as `YYYY-MM-DDTHH:MM:SS[.f]Z`, the same text as `jiff-sqlx`.
 impl Encode<'_, Sqlite> for Timestamp {
     fn encode_by_ref(&self, buf: &mut SqliteArgumentsBuffer) -> Result<IsNull, BoxDynError> {
-        Encode::<Sqlite>::encode(self.display_with_offset(Offset::UTC).to_string(), buf)
+        Encode::<Sqlite>::encode(self.to_string(), buf)
     }
 }
 
+/// Encodes as `YYYY-MM-DDTHH:MM:SS[.f]`, the same text as `jiff-sqlx`.
 impl Encode<'_, Sqlite> for DateTime {
     fn encode_by_ref(&self, buf: &mut SqliteArgumentsBuffer) -> Result<IsNull, BoxDynError> {
-        Encode::<Sqlite>::encode(self.strftime("%F %T%.f").to_string(), buf)
+        Encode::<Sqlite>::encode(self.to_string(), buf)
     }
 }
 
 impl Encode<'_, Sqlite> for Date {
     fn encode_by_ref(&self, buf: &mut SqliteArgumentsBuffer) -> Result<IsNull, BoxDynError> {
-        Encode::<Sqlite>::encode(self.strftime("%F").to_string(), buf)
+        Encode::<Sqlite>::encode(self.to_string(), buf)
     }
 }
 
 impl Encode<'_, Sqlite> for Time {
     fn encode_by_ref(&self, buf: &mut SqliteArgumentsBuffer) -> Result<IsNull, BoxDynError> {
-        Encode::<Sqlite>::encode(self.strftime("%T%.f").to_string(), buf)
+        Encode::<Sqlite>::encode(self.to_string(), buf)
     }
 }
 
@@ -216,16 +217,16 @@ mod tests {
         assert!(decoded.duration_since(expected).abs().as_micros() < 1_000);
     }
 
+    // Must match `jiff-sqlx` byte for byte: SQLite compares these as text.
     #[test]
-    fn encodes_like_chrono() {
+    fn encodes_like_jiff_sqlx() {
         let dt = date(2020, 1, 2).at(3, 4, 5, 600_000_000);
-        assert_eq!(dt.strftime("%F %T%.f").to_string(), "2020-01-02 03:04:05.6");
-        assert_eq!(time(3, 4, 5, 0).strftime("%T%.f").to_string(), "03:04:05");
+        assert_eq!(dt.to_string(), "2020-01-02T03:04:05.6");
+        assert_eq!(dt.date().to_string(), "2020-01-02");
+        assert_eq!(time(3, 4, 5, 0).to_string(), "03:04:05");
         assert_eq!(
-            Timestamp::UNIX_EPOCH
-                .display_with_offset(Offset::UTC)
-                .to_string(),
-            "1970-01-01T00:00:00+00:00"
+            Timestamp::new(0, 123_456_000).unwrap().to_string(),
+            "1970-01-01T00:00:00.123456Z"
         );
     }
 }

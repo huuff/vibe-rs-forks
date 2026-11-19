@@ -107,9 +107,13 @@
 //! | `jiff::civil::Date`                   | DATE (TEXT only)                                     |
 //! | `jiff::civil::Time`                   | TIME (TEXT only)                                     |
 //!
-//! The behavior is identical to the corresponding `chrono` types: `Timestamp` behaves like
-//! `DateTime<Utc>` (RFC 3339 with a `+00:00` offset) and `civil::DateTime` like `NaiveDateTime`
-//! (`YYYY-MM-DD HH:MM:SS.SSS`, the SQLite format).
+//! Decoding accepts the same formats as the corresponding `chrono` types (`Timestamp` is like
+//! `DateTime<Utc>`, `civil::DateTime` like `NaiveDateTime`).
+//!
+//! Encoding writes the same text as the [`jiff-sqlx`](https://crates.io/crates/jiff-sqlx) crate,
+//! i.e. jiff's `Display`: `2024-03-04T05:06:07.5Z` for `Timestamp` and `2024-03-04T05:06:07.5`
+//! for `civil::DateTime`. This differs from `chrono` (`+00:00` offset, space separator), and
+//! SQLite compares `DATETIME` text lexicographically, so don't mix the two in one column.
 //!
 //! ### [`time`](https://crates.io/crates/time)
 //!
