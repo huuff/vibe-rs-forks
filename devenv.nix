@@ -30,11 +30,25 @@ in
 
   git-hooks.hooks = {
     # --- secrets: never commit credentials ---
-    ripsecrets.enable = true; # scans staged changes for API keys/tokens
-    detect-private-keys.enable = true;
+    # Upstream sqlx ships fake credentials and a test PEM key in its sources.
+    ripsecrets = {
+      enable = true; # scans staged changes for API keys/tokens
+      excludes = [
+        "^forks/sqlx/sqlx-(core/src/net/tls/tls_rustls|(mysql|postgres)/src/options/(mod|parse))\\.rs$"
+      ];
+    };
+    detect-private-keys = {
+      enable = true;
+      excludes = [
+        "^forks/sqlx/sqlx-(core/src/net/tls/tls_rustls|(mysql|postgres)/src/options/mod)\\.rs$"
+      ];
+    };
 
     # --- hygiene ---
-    check-added-large-files.enable = true;
+    check-added-large-files = {
+      enable = true;
+      excludes = [ "^forks/sqlx/sqlx-cli/tests/assets/sample_metadata\\.json$" ];
+    };
     check-merge-conflicts.enable = true;
     # Golden files under forks/*/tests are compared byte-for-byte; leave them alone.
     end-of-file-fixer = {
@@ -52,8 +66,15 @@ in
     deadnix.enable = true;
 
     # --- static analysis: shell ---
-    shellcheck.enable = true;
-    shfmt.enable = true;
+    # Upstream maintainer scripts are not ours to lint.
+    shellcheck = {
+      enable = true;
+      excludes = [ "^forks/sqlx/.*\\.sh$" ];
+    };
+    shfmt = {
+      enable = true;
+      excludes = [ "^forks/sqlx/.*\\.sh$" ];
+    };
 
     # --- static analysis: rust ---
     # clippy is deliberately not a hook: upstream code is rarely warning-free
