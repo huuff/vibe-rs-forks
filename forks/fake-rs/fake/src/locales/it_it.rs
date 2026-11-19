@@ -191,6 +191,7 @@ impl Data for IT_IT {
     const CHRONO_DEFAULT_TIME_FORMAT: &'static str = "%H:%M:%S";
     const CHRONO_DEFAULT_DATE_FORMAT: &'static str = "%d-%m-%Y";
     const CHRONO_DEFAULT_DATETIME_FORMAT: &'static str = "%d-%m-%Y %H:%M:%S";
+    const JIFF_DEFAULT_DATETIME_FORMAT: &'static str = Self::CHRONO_DEFAULT_DATETIME_FORMAT;
 
     const TIME_DEFAULT_DATE_FORMAT: &'static str = "[day]-[month]-[year]";
     const TIME_DEFAULT_DATETIME_FORMAT: &'static str =

@@ -631,6 +631,7 @@ impl Data for FA_IR {
     const CHRONO_DEFAULT_TIME_FORMAT: &'static str = "%H:%M:%S";
     const CHRONO_DEFAULT_DATE_FORMAT: &'static str = "%Y/%m/%d";
     const CHRONO_DEFAULT_DATETIME_FORMAT: &'static str = "%Y/%m/%d %H:%M:%S";
+    const JIFF_DEFAULT_DATETIME_FORMAT: &'static str = Self::CHRONO_DEFAULT_DATETIME_FORMAT;
 
     const TIME_DEFAULT_DATE_FORMAT: &'static str = "[year]/[month]/[day]";
     const TIME_DEFAULT_DATETIME_FORMAT: &'static str =

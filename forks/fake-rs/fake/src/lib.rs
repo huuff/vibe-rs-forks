@@ -10,6 +10,7 @@
 //! - `geo`: [geo-types](https://docs.rs/geo-types) integration
 //! - `glam`: [glam](https://docs.rs/glam) integration
 //! - `http`: [http](https://docs.rs/http) integration
+//! - `jiff`: [jiff](https://docs.rs/jiff) integration
 //! - `rust-decimal`: [rust_decimal](https://docs.rs/rust_decimal) integration
 //! - `time`: [time](https://docs.rs/time) integration
 //! - `ulid`: [ulid](https://docs.rs/ulid) integration
@@ -300,6 +301,10 @@ pub use impls::time;
 #[cfg(feature = "chrono")]
 #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
 pub use impls::chrono;
+
+#[cfg(feature = "jiff")]
+#[cfg_attr(docsrs, doc(cfg(feature = "jiff")))]
+pub use impls::jiff;
 
 #[cfg(feature = "bson_oid")]
 #[cfg_attr(docsrs, doc(cfg(feature = "bson_oid")))]

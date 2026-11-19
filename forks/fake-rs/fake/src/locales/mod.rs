@@ -69,6 +69,12 @@ pub trait Data {
     const CHRONO_DEFAULT_DATE_FORMAT: &'static str = "%F";
     const CHRONO_DEFAULT_DATETIME_FORMAT: &'static str = "%+";
 
+    // https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html
+    // jiff has no `%+`, so the date-time format can't reuse chrono's
+    const JIFF_DEFAULT_TIME_FORMAT: &'static str = Self::CHRONO_DEFAULT_TIME_FORMAT;
+    const JIFF_DEFAULT_DATE_FORMAT: &'static str = Self::CHRONO_DEFAULT_DATE_FORMAT;
+    const JIFF_DEFAULT_DATETIME_FORMAT: &'static str = "%Y-%m-%dT%H:%M:%S%.f%:z";
+
     // see https://time-rs.github.io/book/api/format-description.html
     // for a complete description of each format
     const TIME_DEFAULT_TIME_FORMAT: &'static str = "[hour]:[minute]:[second][subsecond]";

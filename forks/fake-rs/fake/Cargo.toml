@@ -55,6 +55,7 @@ clap = { version = "4.0.32", optional = true, features = ["cargo"] }
 base64 = { version = "0.22.1", optional = true }
 either = { version = "1", optional = true }
 nonempty = { version = "0.12", optional = true }
+jiff = { version = "1", default-features = false, features = ["std"], optional = true }
 
 [dev-dependencies]
 chrono = { version = "0.4", features = ["clock"], default-features = false }

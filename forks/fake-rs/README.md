@@ -40,6 +40,7 @@ Available library features:
   - `chrono`
   - `chrono-tz`
   - `http`
+  - `jiff`
   - `ulid`
   - `ferroid`
   - `uuid`

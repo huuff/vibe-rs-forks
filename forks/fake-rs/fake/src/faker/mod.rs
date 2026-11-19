@@ -160,6 +160,19 @@ pub mod chrono {
     }
 }
 
+#[cfg(feature = "jiff")]
+pub mod jiff {
+    def_fakers! {
+        Time();
+        Date();
+        DateTime();
+        Duration();
+        DateTimeBefore(dt: jiff::Timestamp);
+        DateTimeAfter(dt: jiff::Timestamp);
+        DateTimeBetween(start: jiff::Timestamp, end: jiff::Timestamp);
+    }
+}
+
 #[cfg(feature = "time")]
 pub mod time {
     def_fakers! {

@@ -3074,6 +3074,7 @@ impl Data for VI {
     const CHRONO_DEFAULT_DATE_FORMAT: &'static str = "%d/%m/%Y";
 
     const CHRONO_DEFAULT_DATETIME_FORMAT: &'static str = "%d/%m/%Y %H:%M:%S";
+    const JIFF_DEFAULT_DATETIME_FORMAT: &'static str = Self::CHRONO_DEFAULT_DATETIME_FORMAT;
 
     const TIME_DEFAULT_TIME_FORMAT: &'static str = "[hour]:[minute]:[second][subsecond]";
 

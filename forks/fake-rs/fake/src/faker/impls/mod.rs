@@ -16,6 +16,8 @@ pub mod finance;
 #[cfg(feature = "http")]
 pub mod http;
 pub mod internet;
+#[cfg(feature = "jiff")]
+pub mod jiff;
 pub mod job;
 pub mod lorem;
 pub mod markdown;

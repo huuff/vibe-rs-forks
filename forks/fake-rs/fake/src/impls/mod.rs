@@ -28,6 +28,8 @@ pub mod glam;
 pub mod http;
 #[cfg(feature = "indexmap")]
 pub mod indexmap;
+#[cfg(feature = "jiff")]
+pub mod jiff;
 #[cfg(feature = "nonempty")]
 pub mod nonempty;
 #[cfg(feature = "semver")]
