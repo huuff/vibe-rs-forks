@@ -5,7 +5,7 @@ projects consume them as Cargo git dependencies:
 
 ```toml
 [dependencies]
-<crate> = { git = "https://github.com/haf/vibe-rs-forks", branch = "main" }
+<crate> = { git = "https://github.com/huuff/vibe-rs-forks", branch = "main" }
 ```
 
 Cargo locates the crate by package name anywhere in the repo, so no workspace

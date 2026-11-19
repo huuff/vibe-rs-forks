@@ -9,7 +9,7 @@ patches minimal and in upstream style; add a section here for each new one.
 Consumers depend on the `fake` package:
 
 ```toml
-fake = { git = "https://github.com/haf/vibe-rs-forks", branch = "main", features = ["derive", "nonempty"] }
+fake = { git = "https://github.com/huuff/vibe-rs-forks", branch = "main", features = ["derive", "nonempty"] }
 ```
 
 ## Differences from upstream
