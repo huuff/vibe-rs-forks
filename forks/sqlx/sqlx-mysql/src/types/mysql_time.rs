@@ -261,7 +261,10 @@ impl MySqlTime {
         self.hours() * 3600 + self.minutes() as u32 * 60 + self.seconds() as u32
     }
 
-    #[cfg_attr(not(any(feature = "time", feature = "chrono")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(feature = "time", feature = "chrono", feature = "jiff")),
+        allow(dead_code)
+    )]
     pub(crate) fn whole_seconds_signed(&self) -> i64 {
         self.whole_seconds() as i64 * self.sign.signum() as i64
     }
@@ -573,7 +576,8 @@ fn parse(text: &str) -> Result<MySqlTime, BoxDynError> {
         .parse()
         .map_err(|e| format!("error parsing hours from {text:?} (segment {hours:?}): {e}"))?;
 
-    let sign = if hours.is_negative() {
+    // `-00:00:01` parses to `-0` hours, so check the text for the sign
+    let sign = if text.starts_with('-') {
         MySqlTimeSign::Negative
     } else {
         MySqlTimeSign::Positive
@@ -605,6 +609,13 @@ fn parse(text: &str) -> Result<MySqlTime, BoxDynError> {
         )
     };
 
+    // `MySqlTime` has no negative zero
+    let sign = if (hours, minutes, seconds, microseconds) == (0, 0, 0, 0) {
+        MySqlTimeSign::Positive
+    } else {
+        sign
+    };
+
     Ok(MySqlTime::new(sign, hours, minutes, seconds, microseconds)?)
 }
 
@@ -631,7 +642,7 @@ mod tests {
     use super::MySqlTime;
     use crate::types::MySqlTimeSign;
 
-    use super::parse_microseconds;
+    use super::{parse, parse_microseconds};
 
     #[test]
     fn test_display() {
@@ -696,6 +707,15 @@ mod tests {
         assert!(!MySqlTime::ZERO.is_negative());
         assert!(!MySqlTime::MAX.is_negative());
         assert!(MySqlTime::MIN.is_negative());
+    }
+
+    #[test]
+    fn test_parse_negative_zero_hours() {
+        let time = parse("-00:00:01.500000").unwrap();
+        assert!(time.is_negative());
+        assert_eq!(time.to_string(), "-0:00:01.5");
+
+        assert!(!parse("-00:00:00").unwrap().is_negative());
     }
 
     #[test]

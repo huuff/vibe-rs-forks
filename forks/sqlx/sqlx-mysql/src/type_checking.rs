@@ -42,6 +42,15 @@ impl_type_checking!(
 
             sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>,
         },
+        jiff: {
+            sqlx::types::jiff::civil::Time,
+
+            sqlx::types::jiff::civil::Date,
+
+            sqlx::types::jiff::civil::DateTime,
+
+            sqlx::types::jiff::Timestamp,
+        },
         time: {
             sqlx::types::time::Time,
 

@@ -128,6 +128,67 @@ mod chrono {
     ));
 }
 
+#[cfg(feature = "jiff")]
+mod jiff {
+    use super::*;
+    use sqlx::types::jiff::civil::{date, time, Date, DateTime, Time};
+    use sqlx::types::jiff::Timestamp;
+
+    fn ts(s: &str) -> Timestamp {
+        s.parse().unwrap()
+    }
+
+    test_type!(jiff_timestamp<Timestamp>(
+        Sqlite,
+        "SELECT datetime({0}) is datetime(?), {0}, ?",
+        "'1996-12-20T00:39:57+00:00'" == ts("1996-12-20T00:39:57Z"),
+        "'2015-11-19 01:01:39+01:00'" == ts("2015-11-19T00:01:39Z"),
+        "'2014-10-18 00:00:38.697+00:00'" == ts("2014-10-18T00:00:38.697Z"),
+        "'2016-11-08T03:50:23-05:00'" == ts("2016-11-08T08:50:23Z"),
+    ));
+
+    test_type!(jiff_date_time<DateTime>(
+        Sqlite,
+        "SELECT datetime({0}) is datetime(?), {0}, ?",
+        "'2019-01-02 05:10:20'" == date(2019, 1, 2).at(5, 10, 20, 0),
+        "'2018-12-01 04:09:19.543'" == date(2018, 12, 1).at(4, 9, 19, 543_000_000),
+        "'2017-11-30 03:08'" == date(2017, 11, 30).at(3, 8, 0, 0),
+        "'2016-10-29T02:07:17'" == date(2016, 10, 29).at(2, 7, 17, 0),
+        "'2013-07-26 23:04:14Z'" == date(2013, 7, 26).at(23, 4, 14, 0),
+        "'2009-03-22T19:00:10.21Z'" == date(2009, 3, 22).at(19, 0, 10, 210_000_000),
+    ));
+
+    test_type!(jiff_date<Date>(
+        Sqlite,
+        "SELECT date({0}) is date(?), {0}, ?",
+        "'2002-06-04'" == date(2002, 6, 4),
+    ));
+
+    test_type!(jiff_time<Time>(
+        Sqlite,
+        "SELECT time({0}) is time(?), {0}, ?",
+        "'21:46:32'" == time(21, 46, 32, 0),
+        "'20:45:31.133'" == time(20, 45, 31, 133_000_000),
+        "'19:44'" == time(19, 44, 0, 0),
+    ));
+
+    #[sqlx_macros::test]
+    async fn it_decodes_integer_and_julian_day_timestamps() -> anyhow::Result<()> {
+        let mut conn = new::<Sqlite>().await?;
+
+        let (unix, julian): (Timestamp, Timestamp) = sqlx::query_as(
+            "SELECT unixepoch('2020-01-02 03:04:05'), julianday('2020-01-02 03:04:05')",
+        )
+        .fetch_one(&mut conn)
+        .await?;
+
+        assert_eq!(unix, ts("2020-01-02T03:04:05Z"));
+        assert!(julian.duration_since(unix).abs().as_millis() < 1);
+
+        Ok(())
+    }
+}
+
 #[cfg(feature = "time")]
 mod time_tests {
     use super::*;

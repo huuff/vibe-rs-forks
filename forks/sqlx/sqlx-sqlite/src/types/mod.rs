@@ -96,6 +96,21 @@
 //! Note that non-constant offsets may still cause issues when comparing timestamps,
 //! as the comparison operators are not timezone-aware.
 //!
+//! ### [`jiff`](https://crates.io/crates/jiff)
+//!
+//! Requires the `jiff` Cargo feature flag.
+//!
+//! | Rust type                             | Sqlite type(s)                                       |
+//! |---------------------------------------|------------------------------------------------------|
+//! | `jiff::Timestamp`                     | DATETIME (TEXT, INTEGER, REAL)                       |
+//! | `jiff::civil::DateTime`               | DATETIME (TEXT, INTEGER, REAL)                       |
+//! | `jiff::civil::Date`                   | DATE (TEXT only)                                     |
+//! | `jiff::civil::Time`                   | TIME (TEXT only)                                     |
+//!
+//! The behavior is identical to the corresponding `chrono` types: `Timestamp` behaves like
+//! `DateTime<Utc>` (RFC 3339 with a `+00:00` offset) and `civil::DateTime` like `NaiveDateTime`
+//! (`YYYY-MM-DD HH:MM:SS.SSS`, the SQLite format).
+//!
 //! ### [`time`](https://crates.io/crates/time)
 //!
 //! Requires the `time` Cargo feature flag.
@@ -229,6 +244,8 @@ mod bytes;
 mod chrono;
 mod float;
 mod int;
+#[cfg(feature = "jiff")]
+mod jiff;
 #[cfg(feature = "json")]
 mod json;
 mod str;

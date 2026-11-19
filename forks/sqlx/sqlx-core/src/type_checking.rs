@@ -167,6 +167,9 @@ macro_rules! impl_type_checking {
             chrono: {
                 $($chrono_ty:ty $(| $chrono_input:ty)?),*$(,)?
             },
+            jiff: {
+                $($jiff_ty:ty $(| $jiff_input:ty)?),*$(,)?
+            },
             time: {
                 $($time_ty:ty $(| $time_input:ty)?),*$(,)?
             },
@@ -210,12 +213,13 @@ macro_rules! impl_type_checking {
                 //
                 // Due to legacy reasons, `time` takes precedent over `chrono` if both are enabled.
                 // Any crates added later should be _lower_ priority than `chrono` to avoid breakages.
+                // `jiff` (added in this fork) comes last.
                 // ----------------------------------------
                 #[cfg(feature = "time")]
                 if matches!(preferred_crates.date_time, DateTimeCrate::Time | DateTimeCrate::Inferred) {
                     $(
                         if <$time_ty as sqlx_core::types::Type<$database>>::type_info() == *info {
-                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "chrono") {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && (cfg!(feature = "chrono") || cfg!(feature = "jiff")) {
                                 return Err($crate::type_checking::Error::AmbiguousDateTimeType {
                                     fallback: $crate::select_input_type!($time_ty $(, $time_input)?),
                                 });
@@ -227,7 +231,7 @@ macro_rules! impl_type_checking {
 
                     $(
                         if <$time_ty as sqlx_core::types::Type<$database>>::compatible(info) {
-                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "chrono") {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && (cfg!(feature = "chrono") || cfg!(feature = "jiff")) {
                                 return Err($crate::type_checking::Error::AmbiguousDateTimeType {
                                     fallback: $crate::select_input_type!($time_ty $(, $time_input)?),
                                 });
@@ -247,12 +251,24 @@ macro_rules! impl_type_checking {
                 if matches!(preferred_crates.date_time, DateTimeCrate::Chrono | DateTimeCrate::Inferred) {
                     $(
                         if <$chrono_ty as sqlx_core::types::Type<$database>>::type_info() == *info {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "jiff") {
+                                return Err($crate::type_checking::Error::AmbiguousDateTimeType {
+                                    fallback: $crate::select_input_type!($chrono_ty $(, $chrono_input)?),
+                                });
+                            }
+
                             return Ok($crate::select_input_type!($chrono_ty $(, $chrono_input)?));
                         }
                     )*
 
                     $(
                         if <$chrono_ty as sqlx_core::types::Type<$database>>::compatible(info) {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "jiff") {
+                                return Err($crate::type_checking::Error::AmbiguousDateTimeType {
+                                    fallback: $crate::select_input_type!($chrono_ty $(, $chrono_input)?),
+                                });
+                            }
+
                             return Ok($crate::select_input_type!($chrono_ty $(, $chrono_input)?));
                         }
                     )*
@@ -260,6 +276,26 @@ macro_rules! impl_type_checking {
 
                 #[cfg(not(feature = "chrono"))]
                 if preferred_crates.date_time == DateTimeCrate::Chrono {
+                    return Err(Error::DateTimeCrateFeatureNotEnabled);
+                }
+
+                #[cfg(feature = "jiff")]
+                if matches!(preferred_crates.date_time, DateTimeCrate::Jiff | DateTimeCrate::Inferred) {
+                    $(
+                        if <$jiff_ty as sqlx_core::types::Type<$database>>::type_info() == *info {
+                            return Ok($crate::select_input_type!($jiff_ty $(, $jiff_input)?));
+                        }
+                    )*
+
+                    $(
+                        if <$jiff_ty as sqlx_core::types::Type<$database>>::compatible(info) {
+                            return Ok($crate::select_input_type!($jiff_ty $(, $jiff_input)?));
+                        }
+                    )*
+                }
+
+                #[cfg(not(feature = "jiff"))]
+                if preferred_crates.date_time == DateTimeCrate::Jiff {
                     return Err(Error::DateTimeCrateFeatureNotEnabled);
                 }
 
@@ -350,12 +386,13 @@ macro_rules! impl_type_checking {
                 //
                 // Due to legacy reasons, `time` takes precedent over `chrono` if both are enabled.
                 // Any crates added later should be _lower_ priority than `chrono` to avoid breakages.
+                // `jiff` (added in this fork) comes last.
                 // ----------------------------------------
                 #[cfg(feature = "time")]
                 if matches!(preferred_crates.date_time, DateTimeCrate::Time | DateTimeCrate::Inferred) {
                     $(
                         if <$time_ty as sqlx_core::types::Type<$database>>::type_info() == *info {
-                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "chrono") {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && (cfg!(feature = "chrono") || cfg!(feature = "jiff")) {
                                 return Err($crate::type_checking::Error::AmbiguousDateTimeType {
                                     fallback: stringify!($time_ty),
                                 });
@@ -367,7 +404,7 @@ macro_rules! impl_type_checking {
 
                     $(
                         if <$time_ty as sqlx_core::types::Type<$database>>::compatible(info) {
-                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "chrono") {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && (cfg!(feature = "chrono") || cfg!(feature = "jiff")) {
                                 return Err($crate::type_checking::Error::AmbiguousDateTimeType {
                                     fallback: stringify!($time_ty),
                                 });
@@ -387,12 +424,24 @@ macro_rules! impl_type_checking {
                 if matches!(preferred_crates.date_time, DateTimeCrate::Chrono | DateTimeCrate::Inferred) {
                     $(
                         if <$chrono_ty as sqlx_core::types::Type<$database>>::type_info() == *info {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "jiff") {
+                                return Err($crate::type_checking::Error::AmbiguousDateTimeType {
+                                    fallback: stringify!($chrono_ty),
+                                });
+                            }
+
                             return Ok(stringify!($chrono_ty));
                         }
                     )*
 
                     $(
                         if <$chrono_ty as sqlx_core::types::Type<$database>>::compatible(info) {
+                            if preferred_crates.date_time == DateTimeCrate::Inferred && cfg!(feature = "jiff") {
+                                return Err($crate::type_checking::Error::AmbiguousDateTimeType {
+                                    fallback: stringify!($chrono_ty),
+                                });
+                            }
+
                             return Ok(stringify!($chrono_ty));
                         }
                     )*
@@ -400,6 +449,26 @@ macro_rules! impl_type_checking {
 
                 #[cfg(not(feature = "chrono"))]
                 if preferred_crates.date_time == DateTimeCrate::Chrono {
+                    return Err(Error::DateTimeCrateFeatureNotEnabled);
+                }
+
+                #[cfg(feature = "jiff")]
+                if matches!(preferred_crates.date_time, DateTimeCrate::Jiff | DateTimeCrate::Inferred) {
+                    $(
+                        if <$jiff_ty as sqlx_core::types::Type<$database>>::type_info() == *info {
+                            return Ok(stringify!($jiff_ty));
+                        }
+                    )*
+
+                    $(
+                        if <$jiff_ty as sqlx_core::types::Type<$database>>::compatible(info) {
+                            return Ok(stringify!($jiff_ty));
+                        }
+                    )*
+                }
+
+                #[cfg(not(feature = "jiff"))]
+                if preferred_crates.date_time == DateTimeCrate::Jiff {
                     return Err(Error::DateTimeCrateFeatureNotEnabled);
                 }
 
@@ -486,6 +555,15 @@ macro_rules! impl_type_checking {
                     $(
                         if <$chrono_ty as sqlx_core::types::Type<$database>>::compatible(&info) {
                             return $crate::type_checking::FmtValue::debug::<$chrono_ty>(value);
+                        }
+                    )*
+                }
+
+                #[cfg(feature = "jiff")]
+                {
+                    $(
+                        if <$jiff_ty as sqlx_core::types::Type<$database>>::compatible(&info) {
+                            return $crate::type_checking::FmtValue::debug::<$jiff_ty>(value);
                         }
                     )*
                 }

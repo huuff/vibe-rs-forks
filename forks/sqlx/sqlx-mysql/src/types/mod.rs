@@ -71,6 +71,22 @@
 //!
 //! To encode a `chrono::TimeDelta`, convert it to [`MySqlTime`] first using `TryFrom`/`TryInto`.
 //!
+//! ### [`jiff`](https://crates.io/crates/jiff)
+//!
+//! Requires the `jiff` Cargo feature flag.
+//!
+//! | Rust type                             | MySQL/MariaDB type(s)                                |
+//! |---------------------------------------|------------------------------------------------------|
+//! | `jiff::Timestamp`                     | TIMESTAMP                                            |
+//! | `jiff::civil::DateTime`               | DATETIME                                             |
+//! | `jiff::civil::Date`                   | DATE                                                 |
+//! | `jiff::civil::Time`                   | TIME (time-of-day only)                              |
+//! | `jiff::SignedDuration`                | TIME (decodes full range; see note for encoding)     |
+//!
+//! As with `chrono`, decoding a `TIME` value as `jiff::civil::Time` returns an error if the value
+//! is not a valid time-of-day; [`MySqlTime`] implements `TryInto<jiff::civil::Time>`.
+//! To encode a `jiff::SignedDuration`, convert it to [`MySqlTime`] first using `TryFrom`/`TryInto`.
+//!
 //! ### [`time`](https://crates.io/crates/time)
 //!
 //! Requires the `time` Cargo feature flag.
@@ -183,6 +199,9 @@ mod rust_decimal;
 
 #[cfg(feature = "chrono")]
 mod chrono;
+
+#[cfg(feature = "jiff")]
+mod jiff;
 
 #[cfg(feature = "time")]
 mod time;

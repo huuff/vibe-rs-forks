@@ -19,6 +19,12 @@ type DefaultOffset = ::time::UtcOffset;
 #[cfg(all(not(feature = "time"), feature = "chrono"))]
 type DefaultOffset = ::chrono::FixedOffset;
 
+#[cfg(all(not(feature = "time"), not(feature = "chrono"), feature = "jiff"))]
+type DefaultTime = ::jiff::civil::Time;
+
+#[cfg(all(not(feature = "time"), not(feature = "chrono"), feature = "jiff"))]
+type DefaultOffset = ::jiff::tz::Offset;
+
 /// Represents a moment of time, in a specified timezone.
 ///
 /// # Warning
@@ -191,5 +197,97 @@ mod time {
                 }
             }
         }
+    }
+}
+
+#[cfg(feature = "jiff")]
+mod jiff {
+    use super::*;
+    use ::jiff::civil::Time;
+    use ::jiff::tz::Offset;
+
+    use crate::types::jiff::time::time_from_micros;
+
+    impl Type<Postgres> for PgTimeTz<Time, Offset> {
+        fn type_info() -> PgTypeInfo {
+            PgTypeInfo::TIMETZ
+        }
+    }
+
+    impl Encode<'_, Postgres> for PgTimeTz<Time, Offset> {
+        fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
+            let _: IsNull = <Time as Encode<'_, Postgres>>::encode(self.time, buf)?;
+            let _: IsNull = <i32 as Encode<'_, Postgres>>::encode(-self.offset.seconds(), buf)?;
+
+            Ok(IsNull::No)
+        }
+
+        fn size_hint(&self) -> usize {
+            mem::size_of::<i64>() + mem::size_of::<i32>()
+        }
+    }
+
+    impl<'r> Decode<'r, Postgres> for PgTimeTz<Time, Offset> {
+        fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
+            match value.format() {
+                PgValueFormat::Binary => {
+                    let mut buf = Cursor::new(value.as_bytes()?);
+
+                    // TIME is encoded as the microseconds since midnight
+                    let us = buf.read_i64::<BigEndian>()?;
+                    let time = time_from_micros(us)?;
+
+                    // OFFSET is encoded as seconds from UTC
+                    let seconds = buf.read_i32::<BigEndian>()?;
+
+                    Ok(PgTimeTz {
+                        time,
+                        offset: Offset::from_seconds(-seconds)?,
+                    })
+                }
+
+                PgValueFormat::Text => try_parse_timetz(value.as_str()?),
+            }
+        }
+    }
+
+    /// Parses `HH:MM:SS[.ffffff]{+|-}HH[:MM[:SS]]`, as Postgres prints `TIMETZ`.
+    fn try_parse_timetz(s: &str) -> Result<PgTimeTz<Time, Offset>, BoxDynError> {
+        let sign_at = s
+            .rfind(['+', '-'])
+            .ok_or_else(|| format!("`TIMETZ` value without an offset: {s:?}"))?;
+        let (time, offset) = s.split_at(sign_at);
+        let sign = if offset.starts_with('-') { -1 } else { 1 };
+
+        let mut seconds = 0;
+        let mut parts = 0;
+        for (part, scale) in offset[1..].split(':').zip([3600, 60, 1]) {
+            seconds += part.parse::<i32>()? * scale;
+            parts += 1;
+        }
+        if parts != offset[1..].split(':').count() {
+            return Err(format!("invalid `TIMETZ` offset: {offset:?}").into());
+        }
+
+        Ok(PgTimeTz {
+            time: time.parse()?,
+            offset: Offset::from_seconds(sign * seconds)?,
+        })
+    }
+
+    #[test]
+    fn test_try_parse_timetz() {
+        let parsed = try_parse_timetz("04:05:06.789-08").unwrap();
+        assert_eq!(parsed.time, Time::constant(4, 5, 6, 789_000_000));
+        assert_eq!(parsed.offset, Offset::constant(-8));
+
+        let parsed = try_parse_timetz("23:59:59+05:30:15").unwrap();
+        assert_eq!(parsed.time, Time::constant(23, 59, 59, 0));
+        assert_eq!(
+            parsed.offset,
+            Offset::from_seconds(5 * 3600 + 30 * 60 + 15).unwrap()
+        );
+
+        assert!(try_parse_timetz("04:05:06").is_err());
     }
 }

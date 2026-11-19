@@ -201,6 +201,86 @@ mod chrono {
     }
 }
 
+#[cfg(feature = "jiff")]
+mod jiff {
+    use sqlx::types::jiff::civil::{date, time, Date, DateTime, Time};
+    use sqlx::types::jiff::{SignedDuration, Timestamp};
+
+    use super::*;
+
+    test_type!(jiff_date<Date>(MySql,
+        "DATE '2001-01-05'" == date(2001, 1, 5),
+        "DATE '2050-11-23'" == date(2050, 11, 23)
+    ));
+
+    test_type!(jiff_time_zero<Time>(MySql,
+        "TIME '00:00:00.000000'" == Time::midnight()
+    ));
+
+    test_type!(jiff_time<Time>(MySql,
+        "TIME '05:10:20.115100'" == time(5, 10, 20, 115_100_000)
+    ));
+
+    test_type!(jiff_date_time<DateTime>(MySql,
+        "TIMESTAMP '2019-01-02 05:10:20'" == date(2019, 1, 2).at(5, 10, 20, 0),
+        "TIMESTAMP '2019-01-02 00:00:00'" == date(2019, 1, 2).at(0, 0, 0, 0)
+    ));
+
+    test_type!(jiff_timestamp<Timestamp>(MySql,
+        "TIMESTAMP '2019-01-02 05:10:20.115100'" == "2019-01-02T05:10:20.1151Z".parse::<Timestamp>().unwrap()
+    ));
+
+    sqlx_test::test_decode_type!(jiff_signed_duration<SignedDuration>(MySql,
+        "TIME '-838:59:59.000000'" == -SignedDuration::new(838 * 3600 + 59 * 60 + 59, 0),
+        "TIME '-00:00:01.500000'" == -SignedDuration::from_millis(1500),
+        "TIME '25:00:00'" == SignedDuration::from_hours(25)
+    ));
+
+    #[test]
+    fn jiff_mysql_time_conversions() {
+        let neg = MySqlTime::try_from(-SignedDuration::from_millis(1500)).unwrap();
+        assert_eq!(
+            SignedDuration::from(neg),
+            -SignedDuration::from_millis(1500)
+        );
+        assert!(Time::try_from(neg).is_err());
+    }
+
+    #[sqlx_macros::test]
+    async fn test_type_jiff_zero_date() -> anyhow::Result<()> {
+        let mut conn = sqlx_test::new::<MySql>().await?;
+
+        // ensure that zero dates are turned on
+        // newer MySQL has these disabled by default
+
+        conn.execute("SET @@sql_mode := REPLACE(@@sql_mode, 'NO_ZERO_IN_DATE', '');")
+            .await?;
+
+        conn.execute("SET @@sql_mode := REPLACE(@@sql_mode, 'NO_ZERO_DATE', '');")
+            .await?;
+
+        let row = sqlx::query("SELECT DATE '0000-00-00'")
+            .fetch_one(&mut conn)
+            .await?;
+
+        let val: Option<Date> = row.get(0);
+
+        assert_eq!(val, None);
+        assert!(row.try_get::<Date, _>(0).is_err());
+
+        let row = sqlx::query("SELECT TIMESTAMP '0000-00-00 00:00:00'")
+            .fetch_one(&mut conn)
+            .await?;
+
+        let val: Option<DateTime> = row.get(0);
+
+        assert_eq!(val, None);
+        assert!(row.try_get::<DateTime, _>(0).is_err());
+
+        Ok(())
+    }
+}
+
 #[cfg(feature = "time")]
 mod time_tests {
     use time::macros::{date, time};

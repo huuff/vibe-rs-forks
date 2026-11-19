@@ -187,6 +187,39 @@ impl<Tz: chrono::TimeZone> Type<Postgres> for PgRange<chrono::DateTime<Tz>> {
     }
 }
 
+#[cfg(feature = "jiff")]
+impl Type<Postgres> for PgRange<jiff::civil::Date> {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::DATE_RANGE
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        range_compatible::<jiff::civil::Date>(ty)
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl Type<Postgres> for PgRange<jiff::civil::DateTime> {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::TS_RANGE
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        range_compatible::<jiff::civil::DateTime>(ty)
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl Type<Postgres> for PgRange<jiff::Timestamp> {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::TSTZ_RANGE
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        range_compatible::<jiff::Timestamp>(ty)
+    }
+}
+
 #[cfg(feature = "time")]
 impl Type<Postgres> for PgRange<time::Date> {
     fn type_info() -> PgTypeInfo {
@@ -262,6 +295,27 @@ impl PgHasArrayType for PgRange<chrono::NaiveDateTime> {
 
 #[cfg(feature = "chrono")]
 impl<Tz: chrono::TimeZone> PgHasArrayType for PgRange<chrono::DateTime<Tz>> {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::TSTZ_RANGE_ARRAY
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl PgHasArrayType for PgRange<jiff::civil::Date> {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::DATE_RANGE_ARRAY
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl PgHasArrayType for PgRange<jiff::civil::DateTime> {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::TS_RANGE_ARRAY
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl PgHasArrayType for PgRange<jiff::Timestamp> {
     fn array_type_info() -> PgTypeInfo {
         PgTypeInfo::TSTZ_RANGE_ARRAY
     }
@@ -428,7 +482,11 @@ where
                                         in_escape = true;
                                     }
 
-                                    ',' if !in_quotes => break,
+                                    ',' if !in_quotes => {
+                                        // don't read `"a","b"` as an escaped `""`
+                                        prev_ch = ch;
+                                        break;
+                                    }
 
                                     _ => {
                                         element.push(ch);
